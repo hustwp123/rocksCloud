@@ -168,9 +168,9 @@ std::unique_ptr<FilterBlockReader> OtLexPdtFilterBlockReader::Create(
       return std::unique_ptr<FilterBlockReader>();
     }
 
-    if (use_cache && !pin) {
-      filter_block.Reset();
-    }
+    // if (use_cache && !pin) {
+    //   filter_block.Reset();
+    // }
   }
 
   return std::unique_ptr<FilterBlockReader>(
