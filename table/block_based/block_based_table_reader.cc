@@ -78,7 +78,8 @@ class BlocklikeTraits<BlockContents> {
                                SequenceNumber /* global_seqno */,
                                size_t /* read_amp_bytes_per_bit */,
                                Statistics* /* statistics */,
-                               bool /* using_zstd */) {
+                               bool /* using_zstd */,
+                               const FilterPolicy* /* filter_policy */) {
     return new BlockContents(std::move(contents));
   }
 
@@ -92,13 +93,32 @@ class BlocklikeTraits<Block> {
  public:
   static Block* Create(BlockContents&& contents, SequenceNumber global_seqno,
                        size_t read_amp_bytes_per_bit, Statistics* statistics,
-                       bool /* using_zstd */) {
+                       bool /* using_zstd */,
+                       const FilterPolicy* /* filter_policy */) {
     return new Block(std::move(contents), global_seqno, read_amp_bytes_per_bit,
                      statistics);
   }
 
   static uint32_t GetNumRestarts(const Block& block) {
     return block.NumRestarts();
+  }
+};
+
+//wp
+template <>
+class BlocklikeTraits<ParsedFullFilterBlock> {
+ public:
+  static ParsedFullFilterBlock* Create(BlockContents&& contents,
+                                       SequenceNumber /* global_seqno */,
+                                       size_t /* read_amp_bytes_per_bit */,
+                                       Statistics* /* statistics */,
+                                       bool /* using_zstd */,
+                                       const FilterPolicy* filter_policy) {
+    return new ParsedFullFilterBlock(filter_policy, std::move(contents));
+  }
+
+  static uint32_t GetNumRestarts(const ParsedFullFilterBlock& /* block */) {
+    return 0;
   }
 };
 
@@ -109,7 +129,8 @@ class BlocklikeTraits<UncompressionDict> {
                                    SequenceNumber /* global_seqno */,
                                    size_t /* read_amp_bytes_per_bit */,
                                    Statistics* /* statistics */,
-                                   bool using_zstd) {
+                                   bool using_zstd,
+                                   const FilterPolicy* /* filter_policy */) {
     return new UncompressionDict(contents.data, std::move(contents.allocation),
                                  using_zstd);
   }
@@ -135,7 +156,7 @@ Status ReadBlockFromFile(
     const UncompressionDict& uncompression_dict,
     const PersistentCacheOptions& cache_options, SequenceNumber global_seqno,
     size_t read_amp_bytes_per_bit, MemoryAllocator* memory_allocator,
-    bool for_compaction, bool using_zstd) {
+    bool for_compaction, bool using_zstd,const FilterPolicy* filter_policy) {
   assert(result);
 
   BlockContents contents;
@@ -147,7 +168,7 @@ Status ReadBlockFromFile(
   if (s.ok()) {
     result->reset(BlocklikeTraits<TBlocklike>::Create(
         std::move(contents), global_seqno, read_amp_bytes_per_bit,
-        ioptions.statistics, using_zstd));
+        ioptions.statistics, using_zstd,filter_policy));
   }
 
   return s;
@@ -1460,10 +1481,14 @@ Status BlockBasedTable::PrefetchIndexAndFilterBlocks(
   // Find filter handle and filter type
   if (rep_->filter_policy) {
     for (auto filter_type :
-         {Rep::FilterType::kFullFilter, Rep::FilterType::kPartitionedFilter,
+         {Rep::FilterType::kOtLexPdtFilter,
+         Rep::FilterType::kFullFilter, Rep::FilterType::kPartitionedFilter,
           Rep::FilterType::kBlockFilter}) {
       std::string prefix;
       switch (filter_type) {
+        case Rep::FilterType::kOtLexPdtFilter:
+          prefix = kOtLexPdtFilterBlockPrefix; //xp
+          break;
         case Rep::FilterType::kFullFilter:
           prefix = kFullFilterBlockPrefix;
           break;
@@ -1623,7 +1648,7 @@ Status BlockBasedTable::ReadMetaBlock(FilePrefetchBuffer* prefetch_buffer,
       UncompressionDict::GetEmptyDict(), rep_->persistent_cache_options,
       kDisableGlobalSequenceNumber, 0 /* read_amp_bytes_per_bit */,
       GetMemoryAllocator(rep_->table_options), false /* for_compaction */,
-      rep_->blocks_definitely_zstd_compressed);
+      rep_->blocks_definitely_zstd_compressed,nullptr);
 
   if (!s.ok()) {
     ROCKS_LOG_ERROR(rep_->ioptions.info_log,
@@ -1712,7 +1737,8 @@ Status BlockBasedTable::GetDataBlockFromCache(
         BlocklikeTraits<TBlocklike>::Create(
             std::move(contents), rep_->get_global_seqno(block_type),
             read_amp_bytes_per_bit, statistics,
-            rep_->blocks_definitely_zstd_compressed));  // uncompressed block
+            rep_->blocks_definitely_zstd_compressed,
+             rep_->table_options.filter_policy.get()));  // uncompressed block
 
     if (block_cache != nullptr && block_holder->own_bytes() &&
         read_options.fill_cache) {
@@ -1783,11 +1809,13 @@ Status BlockBasedTable::PutDataBlockToCache(
 
     block_holder.reset(BlocklikeTraits<TBlocklike>::Create(
         std::move(uncompressed_block_contents), seq_no, read_amp_bytes_per_bit,
-        statistics, rep_->blocks_definitely_zstd_compressed));
+        statistics, rep_->blocks_definitely_zstd_compressed,
+        rep_->table_options.filter_policy.get()));
   } else {
     block_holder.reset(BlocklikeTraits<TBlocklike>::Create(
         std::move(*raw_block_contents), seq_no, read_amp_bytes_per_bit,
-        statistics, rep_->blocks_definitely_zstd_compressed));
+        statistics, rep_->blocks_definitely_zstd_compressed,
+        rep_->table_options.filter_policy.get()));
   }
 
   // Insert compressed block into compressed block cache.
@@ -1862,6 +1890,12 @@ std::unique_ptr<FilterBlockReader> BlockBasedTable::CreateFilterBlockReader(
     case Rep::FilterType::kFullFilter:
       return FullFilterBlockReader::Create(this, prefetch_buffer, use_cache,
                                            prefetch, pin, lookup_context);
+    case Rep::FilterType::kOtLexPdtFilter: //xp
+      //fprintf(stderr,"in Create kOtLexPdtFilter\n");
+      //fprintf(stderr, "DEBUG kzo3i kOt in CreateFilterBlockReader\n");
+      return OtLexPdtFilterBlockReader::Create(this, prefetch_buffer, use_cache,
+                                           prefetch, pin, lookup_context);
+
 
     default:
       // filter_type is either kNoFilter (exited the function at the first if),
@@ -2474,7 +2508,8 @@ Status BlockBasedTable::RetrieveBlock(
             ? rep_->table_options.read_amp_bytes_per_bit
             : 0,
         GetMemoryAllocator(rep_->table_options), for_compaction,
-        rep_->blocks_definitely_zstd_compressed);
+        rep_->blocks_definitely_zstd_compressed,
+        rep_->table_options.filter_policy.get());
   }
 
   if (!s.ok()) {
@@ -2500,6 +2535,13 @@ template Status BlockBasedTable::RetrieveBlock<Block>(
     FilePrefetchBuffer* prefetch_buffer, const ReadOptions& ro,
     const BlockHandle& handle, const UncompressionDict& uncompression_dict,
     CachableEntry<Block>* block_entry, BlockType block_type,
+    GetContext* get_context, BlockCacheLookupContext* lookup_context,
+    bool for_compaction, bool use_cache) const;
+
+template Status BlockBasedTable::RetrieveBlock<ParsedFullFilterBlock>(
+    FilePrefetchBuffer* prefetch_buffer, const ReadOptions& ro,
+    const BlockHandle& handle, const UncompressionDict& uncompression_dict,
+    CachableEntry<ParsedFullFilterBlock>* block_entry, BlockType block_type,
     GetContext* get_context, BlockCacheLookupContext* lookup_context,
     bool for_compaction, bool use_cache) const;
 
@@ -3782,7 +3824,8 @@ BlockType BlockBasedTable::GetBlockTypeForMetaBlockByName(
     const Slice& meta_block_name) {
   if (meta_block_name.starts_with(kFilterBlockPrefix) ||
       meta_block_name.starts_with(kFullFilterBlockPrefix) ||
-      meta_block_name.starts_with(kPartitionedFilterBlockPrefix)) {
+      meta_block_name.starts_with(kPartitionedFilterBlockPrefix)||
+      meta_block_name.starts_with(kOtLexPdtFilterBlockPrefix)) {
     return BlockType::kFilter;
   }
 

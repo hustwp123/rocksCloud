@@ -7,9 +7,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
 
-#include <cinttypes>
+#include "table/block_based/block_based_table_factory.h"
+
 #include <stdint.h>
 
+#include <cinttypes>
 #include <memory>
 #include <string>
 
@@ -19,7 +21,6 @@
 #include "rocksdb/convenience.h"
 #include "rocksdb/flush_block_policy.h"
 #include "table/block_based/block_based_table_builder.h"
-#include "table/block_based/block_based_table_factory.h"
 #include "table/block_based/block_based_table_reader.h"
 #include "table/format.h"
 #include "util/mutexlock.h"
@@ -164,6 +165,13 @@ BlockBasedTableFactory::BlockBasedTableFactory(
     table_options_.flush_block_policy_factory.reset(
         new FlushBlockBySizePolicyFactory());
   }
+  
+  // wp
+  if (!table_options_.no_block_cache) {
+    // table_options_.cache_index_and_filter_blocks=true; //xp
+    table_options_.cache_index_and_filter_blocks = false;  // xp
+  }
+
   if (table_options_.no_block_cache) {
     table_options_.block_cache.reset();
   } else if (table_options_.block_cache == nullptr) {

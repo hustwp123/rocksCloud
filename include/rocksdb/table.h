@@ -222,6 +222,9 @@ struct BlockBasedTableOptions {
   // is a verification mode that we use to detect bugs in compression
   // algorithms.
   bool verify_compression = false;
+//wp
+  //bool use_pdt = true;
+  bool use_pdt = true;
 
   // If used, For every data block we load into memory, we will create a bitmap
   // of size ((block_size / `read_amp_bytes_per_bit`) / 8) bytes. This bitmap

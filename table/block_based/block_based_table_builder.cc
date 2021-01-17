@@ -90,9 +90,17 @@ FilterBlockBuilder* CreateFilterBlockBuilder(
           filter_bits_builder, table_opt.index_block_restart_interval,
           use_delta_encoding_for_index_values, p_index_builder, partition_size);
     } else {
-      return new FullFilterBlockBuilder(mopt.prefix_extractor.get(),
+      if(table_opt.use_pdt)
+      {
+        return new OtLexPdtFilterBlockBuilder(filter_bits_builder);
+      }
+      else
+      {
+        return new FullFilterBlockBuilder(mopt.prefix_extractor.get(),
                                         table_opt.whole_key_filtering,
                                         filter_bits_builder);
+      }
+      
     }
   }
 }
@@ -850,9 +858,19 @@ void BlockBasedTableBuilder::WriteFilterBlock(
     if (rep_->filter_builder->IsBlockBased()) {
       key = BlockBasedTable::kFilterBlockPrefix;
     } else {
-      key = rep_->table_options.partition_filters
-                ? BlockBasedTable::kPartitionedFilterBlockPrefix
-                : BlockBasedTable::kFullFilterBlockPrefix;
+      if(rep_->table_options.partition_filters)
+      {
+        key=BlockBasedTable::kPartitionedFilterBlockPrefix;
+      }
+      else
+      {
+        if(rep_->table_options.use_pdt) {
+          key = BlockBasedTable::kOtLexPdtFilterBlockPrefix;
+        }
+        else {
+          key = BlockBasedTable::kFullFilterBlockPrefix;
+        }
+      }
     }
     key.append(rep_->table_options.filter_policy->Name());
     meta_index_builder->Add(key, filter_block_handle);
@@ -1192,4 +1210,7 @@ const std::string BlockBasedTable::kFilterBlockPrefix = "filter.";
 const std::string BlockBasedTable::kFullFilterBlockPrefix = "fullfilter.";
 const std::string BlockBasedTable::kPartitionedFilterBlockPrefix =
     "partitionedfilter.";
+
+//wp
+const std::string BlockBasedTable::kOtLexPdtFilterBlockPrefix = "otlexpdtfilter."; //xp
 }  // namespace rocksdb

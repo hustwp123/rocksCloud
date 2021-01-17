@@ -75,6 +75,8 @@ typedef std::vector<std::pair<std::string, std::string>> KVPairBlock;
 // loaded blocks in the memory.
 class BlockBasedTable : public TableReader {
  public:
+ //wp
+  static const std::string kOtLexPdtFilterBlockPrefix; //xp
   static const std::string kFilterBlockPrefix;
   static const std::string kFullFilterBlockPrefix;
   static const std::string kPartitionedFilterBlockPrefix;
@@ -513,6 +515,7 @@ struct BlockBasedTable::Rep {
 
   enum class FilterType {
     kNoFilter,
+    kOtLexPdtFilter, //xp
     kFullFilter,
     kBlockFilter,
     kPartitionedFilter,
