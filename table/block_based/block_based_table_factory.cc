@@ -166,10 +166,10 @@ BlockBasedTableFactory::BlockBasedTableFactory(
         new FlushBlockBySizePolicyFactory());
   }
   
-  // wp
+  //wp
   if (!table_options_.no_block_cache) {
-    // table_options_.cache_index_and_filter_blocks=true; //xp
-    table_options_.cache_index_and_filter_blocks = false;  // xp
+    table_options_.cache_index_and_filter_blocks=true; //xp
+    //table_options_.cache_index_and_filter_blocks = false;  // xp
   }
 
   if (table_options_.no_block_cache) {
