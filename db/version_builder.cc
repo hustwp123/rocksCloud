@@ -626,10 +626,10 @@ Status VersionBuilder::SaveTo(VersionStorageInfo* vstorage) {
 
 Status VersionBuilder::LoadTableHandlers(
     InternalStats* internal_stats, int max_threads,
-    bool, bool is_initial_load,
+    bool c, bool is_initial_load,
     const SliceTransform* prefix_extractor) {
   return rep_->LoadTableHandlers2(internal_stats, max_threads,
-                                 true,
+                                 c,
                                  is_initial_load, prefix_extractor);
 }
 

@@ -223,7 +223,7 @@ struct BlockBasedTableOptions {
   // algorithms.
   bool verify_compression = false;
 //wp
-  //bool use_pdt = true;
+  //bool use_pdt = false;
   bool use_pdt = true;
 
   // If used, For every data block we load into memory, we will create a bitmap
