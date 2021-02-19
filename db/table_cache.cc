@@ -169,6 +169,10 @@ Status TableCache::FindTable(const EnvOptions& env_options,
       }
     }
   }
+  else
+  {
+    perf_context.blkcache_hit=true;
+  }
   return s;
 }
 
@@ -328,6 +332,7 @@ Status TableCache::Get(const ReadOptions& options,
       replayGetContextLog(*found_row_cache_entry, user_key, get_context,
                           &value_pinner);
       RecordTick(ioptions_.statistics, ROW_CACHE_HIT);
+      perf_context.blkcache_hit=true;
       done = true;
     } else {
       // Not found, setting up the replay log.

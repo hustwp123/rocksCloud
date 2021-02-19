@@ -199,6 +199,7 @@ Status BlockFetcher::ReadBlockContents(bool is_meta_block) {
   block_size_ = static_cast<size_t>(handle_.size());
 
   if (TryGetUncompressBlockFromPersistentCache()) {
+    perf_context.pcache_hit=true;
     compression_type_ = kNoCompression;
 #ifndef NDEBUG
     contents_->is_raw_block = true;
@@ -259,6 +260,10 @@ Status BlockFetcher::ReadBlockContents(bool is_meta_block) {
     } else {
       return status_;
     }
+  }
+  else
+  {
+    perf_context.pcache_hit=true;
   }
 
   PERF_TIMER_GUARD(block_decompress_time);

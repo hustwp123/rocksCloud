@@ -9,12 +9,15 @@
 
 #ifndef GFLAGS
 #include <cstdio>
+#include <cstdlib>
 int main() {
   fprintf(stderr, "Please install gflags to run rocksdb tools\n");
   return 1;
 }
 #else
 #include <rocksdb/db_bench_tool.h>
+#include <cstdio>
+#include <cstdlib>
 int main(int argc, char** argv) { 
   freopen("test.log", "w", stderr);
   return rocksdb::db_bench_tool(argc, argv); 

@@ -1473,7 +1473,7 @@ Status DBImpl::GetImpl(const ReadOptions& read_options,
   StopWatch sw(env_, stats_, DB_GET);
   PERF_TIMER_GUARD(get_snapshot_time);
 
-
+  uint64_t time_mem=Env::Default()->NowNanos();
 
   auto cfh = reinterpret_cast<ColumnFamilyHandleImpl*>(column_family);
   auto cfd = cfh->cfd();
@@ -1492,7 +1492,6 @@ Status DBImpl::GetImpl(const ReadOptions& read_options,
 
   TEST_SYNC_POINT("DBImpl::GetImpl:1");
   TEST_SYNC_POINT("DBImpl::GetImpl:2");
-
   SequenceNumber snapshot;
   if (read_options.snapshot != nullptr) {
     if (callback) {
@@ -1566,6 +1565,10 @@ Status DBImpl::GetImpl(const ReadOptions& read_options,
       ReturnAndCleanupSuperVersion(cfd, sv);
       return s;
     }
+  }
+  if(done)
+  {
+    fprintf(stderr,"1 %lu\n",Env::Default()->NowNanos()-time_mem);
   }
 
   if (!done) {

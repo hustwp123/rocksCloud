@@ -2182,6 +2182,7 @@ Status BlockBasedTable::MaybeReadBlockAndLoadToCache(
         // TODO(haoyu): Differentiate cache hit on uncompressed block cache and
         // compressed block cache.
         is_cache_hit = true;
+        perf_context.blkcache_hit=true;
       }
     }
 
