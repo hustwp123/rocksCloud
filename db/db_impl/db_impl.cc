@@ -1473,6 +1473,8 @@ Status DBImpl::GetImpl(const ReadOptions& read_options,
   StopWatch sw(env_, stats_, DB_GET);
   PERF_TIMER_GUARD(get_snapshot_time);
 
+
+
   auto cfh = reinterpret_cast<ColumnFamilyHandleImpl*>(column_family);
   auto cfd = cfh->cfd();
 
@@ -1536,7 +1538,7 @@ Status DBImpl::GetImpl(const ReadOptions& read_options,
   SequenceNumber max_covering_tombstone_seq = 0;
 
   Status s;
-  // First look in the memtable, then in the immutable memtable (if any).
+  // First look in the memtable,\ then in the immutable memtable (if any).
   // s is both in/out. When in, s could either be OK or MergeInProgress.
   // merge_operands will contain the sequence of merges in the latter case.
   LookupKey lkey(key, snapshot, read_options.timestamp);
@@ -1565,6 +1567,7 @@ Status DBImpl::GetImpl(const ReadOptions& read_options,
       return s;
     }
   }
+
   if (!done) {
     PERF_TIMER_GUARD(get_from_output_files_time);
     sv->current->Get(read_options, lkey, pinnable_val, &s, &merge_context,
