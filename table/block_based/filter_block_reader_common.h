@@ -34,7 +34,7 @@ class FilterBlockReaderCommon : public FilterBlockReader {
                                 const ReadOptions& read_options, bool use_cache,
                                 GetContext* get_context,
                                 BlockCacheLookupContext* lookup_context,
-                                CachableEntry<TBlocklike>* filter_block);
+                                CachableEntry<TBlocklike>* filter_block,const int level=0);
 
   const BlockBasedTable* table() const { return table_; }
   const SliceTransform* table_prefix_extractor() const;

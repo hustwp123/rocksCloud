@@ -36,6 +36,7 @@ class OtLexPdtBloomBitsBuilder : public FilterBitsBuilder {
   ~OtLexPdtBloomBitsBuilder() override {}
 
   virtual void AddKey(const Slice& key) override {
+   // fprintf(stderr,"AddKey \n");
 //    fprintf(stderr, "in OtLexPdtBloomBitsBuilder::AddKey() idpaeq\n");
     std::string key_string(key.data(), key.data()+key.size());
     key_strings_.push_back(key_string);
@@ -48,7 +49,9 @@ class OtLexPdtBloomBitsBuilder : public FilterBitsBuilder {
   virtual Slice Finish(std::unique_ptr<const char[]>* buf) override {
 //    fprintf(stderr, "in OtLexPdtBloomBitsBuilder::Finish() 8qpeye\n");
     // generate a compacted trie and get essential data
+   // fprintf(stderr,"test \n");
     assert(key_strings_.size() > 0);
+   // fprintf(stderr,"test 1\n");
     key_strings_.erase(unique(key_strings_.begin(),
                               key_strings_.end()),
                        key_strings_.end()); //xp, for now simply dedup keys
@@ -56,6 +59,9 @@ class OtLexPdtBloomBitsBuilder : public FilterBitsBuilder {
 //    fprintf(stdout, "DEBUG w7zvbg key_strings_.size: %lu\n", key_strings_.size());
 
     //auto chrono_start = std::chrono::system_clock::now();
+   // fprintf(stderr,"test 2\n");
+    //fprintf(stderr,"key_strings_ size=%lu\n",key_strings_.size());
+
     ot_pdt.construct_compacted_trie(key_strings_, false); // ot_pdt.pub_ are inited
     // auto chrono_end = std::chrono::system_clock::now();
     // std::chrono::microseconds elapsed_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_end-chrono_start);
@@ -63,6 +69,7 @@ class OtLexPdtBloomBitsBuilder : public FilterBitsBuilder {
     //           elapsed_us.count() << std::endl;
 
     // get the byte size of key_strings_
+  //  fprintf(stderr,"test 3\n");
     uint64_t ot_lex_pdt_byte_size = CalculateByteSpace();
     assert(ot_lex_pdt_byte_size > 0);
     uint64_t buf_byte_size = ot_lex_pdt_byte_size + 5;
@@ -105,6 +112,7 @@ class OtLexPdtBloomBitsBuilder : public FilterBitsBuilder {
 //            ot_pdt.pub_m_branching_chars.size(),
 //            ot_pdt.pub_m_bp_m_bits.size(),
 //            ot_pdt.pub_m_bp_m_size);
+   // fprintf(stderr,"test 4\n");
     PutIntoCharArray(ot_pdt.pub_m_centroid_path_string,
                      ot_pdt.pub_m_labels,
                      ot_pdt.pub_m_centroid_path_branches,
@@ -116,7 +124,7 @@ class OtLexPdtBloomBitsBuilder : public FilterBitsBuilder {
                      fake_num_probes,
                      buf_byte_size,
                      contents);
-
+      //fprintf(stderr,"test 5\n");
 //    for (size_t i = 0; i < ot_pdt.pub_m_centroid_path_string.size(); i++) {
 //      fprintf(stdout, "Pstring:%ld,%d\n", i, ot_pdt.pub_m_centroid_path_string[i]);
 //    }
@@ -134,7 +142,7 @@ class OtLexPdtBloomBitsBuilder : public FilterBitsBuilder {
 //    }
 
     assert(sizeof(ot_pdt.pub_m_bp_m_size) != 0);
-
+    //fprintf(stderr,"test 6\n");
     // return a Slice with data and its byte length
     const char* const_data = contents;
     buf->reset(const_data);
@@ -241,7 +249,7 @@ class OtLexPdtBloomBitsBuilder : public FilterBitsBuilder {
     uint64_t* p3 = (uint64_t*)(buf + 4 + v1.size() * 2 + 4 + v2.size() * 2 + 4 +
                                v3.size() + 4 + v4.size() + 4 + v5.size() * 8);
     *p3 = num;
-//    fprintf(stderr, "DEBUG yz92dt PutIntoCharArray num: %lu, *p3:%lu\n", num, *p3);
+    fprintf(stderr, "DEBUG yz92dt PutIntoCharArray num: %lu, *p3:%lu\n", num, *p3);
 
     // new bloom filter implementation indicators for GetBloomBitsReader
     char* pc1 = (char*)(buf + 4 + v1.size() * 2 + 4 + v2.size() * 2 + 4 +

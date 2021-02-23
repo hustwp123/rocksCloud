@@ -76,7 +76,7 @@ class PartitionedFilterBlockReader : public FilterBlockReaderCommon<Block> {
   static std::unique_ptr<FilterBlockReader> Create(
       const BlockBasedTable* table, FilePrefetchBuffer* prefetch_buffer,
       bool use_cache, bool prefetch, bool pin,
-      BlockCacheLookupContext* lookup_context);
+      BlockCacheLookupContext* lookup_context,const int level);
 
   bool IsBlockBased() override { return false; }
   bool KeyMayMatch(const Slice& key, const SliceTransform* prefix_extractor,

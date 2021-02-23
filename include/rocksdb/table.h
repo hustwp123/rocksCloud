@@ -212,7 +212,7 @@ struct BlockBasedTableOptions {
   // If non-nullptr, use the specified filter policy to reduce disk reads.
   // Many applications will benefit from passing the result of
   // NewBloomFilterPolicy() here.
-  std::shared_ptr<const FilterPolicy> filter_policy = nullptr;
+  std::shared_ptr<FilterPolicy> filter_policy = nullptr;
 
   // If true, place whole keys in the filter (not just prefixes).
   // This must generally be true for gets to be efficient.
@@ -547,7 +547,7 @@ class TableFactory {
   // to use in this table.
   virtual TableBuilder* NewTableBuilder(
       const TableBuilderOptions& table_builder_options,
-      uint32_t column_family_id, WritableFileWriter* file) const = 0;
+      uint32_t column_family_id, WritableFileWriter* file,int output_level=0) const = 0;
 
   // Sanitizes the specified DB Options and ColumnFamilyOptions.
   //

@@ -146,6 +146,7 @@ class FullFilterBitsReader : public FilterBitsReader {
         num_probes_(0),
         num_lines_(0),
         log2_cache_line_size_(0) {
+     // fprintf(stderr,"Recover FullFilterBitsReader\n");
     assert(data_);
     GetFilterMeta(contents, &num_probes_, &num_lines_);
     // Sanitize broken parameter
@@ -503,8 +504,7 @@ class OtLexPdtBloomBitsReader : public FilterBitsReader {
 // An implementation of filter policy
 class BloomFilterPolicy : public FilterPolicy {
  public:
-   //wp
-  bool isPdt=false;
+   
   explicit BloomFilterPolicy(int bits_per_key, bool use_block_based_builder)
       : bits_per_key_(bits_per_key), hash_func_(BloomHash),
         use_block_based_builder_(use_block_based_builder) {
@@ -583,7 +583,12 @@ class BloomFilterPolicy : public FilterPolicy {
     }
   }
 
-  FilterBitsReader* GetFilterBitsReader(const Slice& contents) const override {
+  FilterBitsReader* GetFilterBitsReader(const Slice& contents,bool isPdt_=true) const override {
+    //fprintf(stderr,"isPdt=%d\n",isPdt);
+    if(!isPdt_)
+    {
+      return new FullFilterBitsReader(contents);
+    }
     if(isPdt)
     {
       return new OtLexPdtBloomBitsReader(contents.data());
@@ -611,11 +616,12 @@ class BloomFilterPolicy : public FilterPolicy {
 
 }  // namespace
 
-const FilterPolicy* NewBloomFilterPolicy(int bits_per_key,
+FilterPolicy* NewBloomFilterPolicy(int bits_per_key,
                                          bool use_block_based_builder) {
   
   BloomFilterPolicy* p=new BloomFilterPolicy(bits_per_key, use_block_based_builder);
-  p->isPdt=true;
+  
+  //p->isPdt=true;
   return p;
 }
 

@@ -205,6 +205,18 @@ Status BlockBasedTableFactory::NewTableReader(
     std::unique_ptr<RandomAccessFileReader>&& file, uint64_t file_size,
     std::unique_ptr<TableReader>* table_reader,
     bool prefetch_index_and_filter_in_cache) const {
+    if(table_options_.filter_policy.get()!=nullptr)
+    {
+      if(table_reader_options.level>=2)
+      {
+        table_options_.filter_policy.get()->setPdt(true);
+      }
+      else
+      {
+        table_options_.filter_policy.get()->setPdt(false);
+      }
+    }
+    
   return BlockBasedTable::Open(
       table_reader_options.ioptions, table_reader_options.env_options,
       table_options_, table_reader_options.internal_comparator, std::move(file),
@@ -217,7 +229,18 @@ Status BlockBasedTableFactory::NewTableReader(
 
 TableBuilder* BlockBasedTableFactory::NewTableBuilder(
     const TableBuilderOptions& table_builder_options, uint32_t column_family_id,
-    WritableFileWriter* file) const {
+    WritableFileWriter* file,int output_level) const {
+    if(table_options_.filter_policy.get()!=nullptr)
+    {
+      if(output_level>=2)
+      {
+        table_options_.filter_policy.get()->setPdt(true);
+      }
+      else
+      {
+        table_options_.filter_policy.get()->setPdt(false);
+      }
+    }
   auto table_builder = new BlockBasedTableBuilder(
       table_builder_options.ioptions, table_builder_options.moptions,
       table_options_, table_builder_options.internal_comparator,
@@ -230,7 +253,7 @@ TableBuilder* BlockBasedTableFactory::NewTableBuilder(
       table_builder_options.creation_time,
       table_builder_options.oldest_key_time,
       table_builder_options.target_file_size,
-      table_builder_options.file_creation_time);
+      table_builder_options.file_creation_time,output_level);
 
   return table_builder;
 }

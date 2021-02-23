@@ -2139,7 +2139,7 @@ class Benchmark {
  private:
   std::shared_ptr<Cache> cache_;
   std::shared_ptr<Cache> compressed_cache_;
-  std::shared_ptr<const FilterPolicy> filter_policy_;
+  std::shared_ptr<FilterPolicy> filter_policy_;
   const SliceTransform* prefix_extractor_;
   DBWithColumnFamilies db_;
   std::vector<DBWithColumnFamilies> multi_dbs_;
@@ -2951,7 +2951,6 @@ class Benchmark {
         fprintf(stderr, "unknown benchmark '%s'\n", name.c_str());
         exit(1);
       }
-
       if (fresh_db) {
         if (FLAGS_use_existing_db) {
           fprintf(stdout, "%-12s : skipped (--use_existing_db is true)\n",
@@ -2974,7 +2973,6 @@ class Benchmark {
         }
         Open(&open_options_);  // use open_options for the last accessed
       }
-
       if (method != nullptr) {
         fprintf(stdout, "DB path: [%s]\n", FLAGS_db.c_str());
 
@@ -3047,7 +3045,6 @@ class Benchmark {
         if (num_warmup > 0) {
           printf("Warming up benchmark by running %d times\n", num_warmup);
         }
-
         for (int i = 0; i < num_warmup; i++) {
           RunBenchmark(num_threads, name, method);
         }
@@ -3075,7 +3072,6 @@ class Benchmark {
       secondary_update_thread_->join();
       secondary_update_thread_.reset();
     }
-
 #ifndef ROCKSDB_LITE
     if (name != "replay" && FLAGS_trace_file != "") {
       Status s = db_.db->EndTrace();
@@ -3093,7 +3089,7 @@ class Benchmark {
       }
     }
 #endif  // ROCKSDB_LITE
-
+fprintf(stderr,"test5\n");
     if (FLAGS_statistics) {
       fprintf(stdout, "STATISTICS:\n%s\n", dbstats->ToString().c_str());
     }
@@ -3429,8 +3425,8 @@ class Benchmark {
     printf("Initializing RocksDB Options from command-line flags\n");
     Options& options = *opts;
 
-    options.db_paths={{"/home/wp/400G/wp/db1",10l*1024*1024*1024},
-    {"/home/wp/400G/wp/db2",100l*1024*1024*1024}};
+    options.db_paths={{"/home/wp/400G/wp/db1",1l*1024*1024*1024},
+    {"/home/wp/400G/wp/db2",10l*1024*1024*1024}};
     assert(db_.db == nullptr);
 
     options.max_open_files = FLAGS_open_files;

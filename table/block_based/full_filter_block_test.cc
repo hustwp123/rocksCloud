@@ -95,7 +95,7 @@ class TestHashFilter : public FilterPolicy {
     return new TestFilterBitsBuilder();
   }
 
-  FilterBitsReader* GetFilterBitsReader(const Slice& contents) const override {
+  FilterBitsReader* GetFilterBitsReader(const Slice& contents,bool) const override {
     return new TestFilterBitsReader(contents);
   }
 };

@@ -430,7 +430,7 @@ class BlockBasedTable : public TableReader {
   // Create the filter from the filter block.
   std::unique_ptr<FilterBlockReader> CreateFilterBlockReader(
       FilePrefetchBuffer* prefetch_buffer, bool use_cache, bool prefetch,
-      bool pin, BlockCacheLookupContext* lookup_context);
+      bool pin, BlockCacheLookupContext* lookup_context,const int level);
 
   static void SetupCacheKeyPrefix(Rep* rep);
 

@@ -1569,7 +1569,7 @@ Status BlockBasedTable::PrefetchIndexAndFilterBlocks(
   if (rep_->filter_policy) {
     auto filter = new_table->CreateFilterBlockReader(
         prefetch_buffer, use_cache, prefetch_filter, pin_filter,
-        lookup_context);
+        lookup_context,level);
     if (filter) {
       // Refer to the comment above about paritioned indexes always being cached
       if (prefetch_all) {
@@ -1869,32 +1869,39 @@ Status BlockBasedTable::PutDataBlockToCache(
 
 std::unique_ptr<FilterBlockReader> BlockBasedTable::CreateFilterBlockReader(
     FilePrefetchBuffer* prefetch_buffer, bool use_cache, bool prefetch,
-    bool pin, BlockCacheLookupContext* lookup_context) {
+    bool pin, BlockCacheLookupContext* lookup_context,const int level) {
+      //fprintf(stderr,"in CreateFilterBlockReader level=%d\n",level);
   auto& rep = rep_;
   auto filter_type = rep->filter_type;
+
   if (filter_type == Rep::FilterType::kNoFilter) {
     return std::unique_ptr<FilterBlockReader>();
   }
 
+  // if(level>=1)
+  // {
+  //   filter_type=Rep::FilterType::kOtLexPdtFilter;
+  // }
   assert(rep->filter_policy);
 
   switch (filter_type) {
     case Rep::FilterType::kPartitionedFilter:
       return PartitionedFilterBlockReader::Create(
-          this, prefetch_buffer, use_cache, prefetch, pin, lookup_context);
+          this, prefetch_buffer, use_cache, prefetch, pin, lookup_context,level);
 
     case Rep::FilterType::kBlockFilter:
       return BlockBasedFilterBlockReader::Create(
-          this, prefetch_buffer, use_cache, prefetch, pin, lookup_context);
+          this, prefetch_buffer, use_cache, prefetch, pin, lookup_context,level);
 
     case Rep::FilterType::kFullFilter:
+    //fprintf(stderr,"in Create FullFilterBlockReader\n");
       return FullFilterBlockReader::Create(this, prefetch_buffer, use_cache,
-                                           prefetch, pin, lookup_context);
+                                           prefetch, pin, lookup_context,level);
     case Rep::FilterType::kOtLexPdtFilter: //xp
       //fprintf(stderr,"in Create kOtLexPdtFilter\n");
       //fprintf(stderr, "DEBUG kzo3i kOt in CreateFilterBlockReader\n");
       return OtLexPdtFilterBlockReader::Create(this, prefetch_buffer, use_cache,
-                                           prefetch, pin, lookup_context);
+                                           prefetch, pin, lookup_context,level);
 
 
     default:
@@ -3224,6 +3231,7 @@ void BlockBasedTable::FullFilterKeysMayMatch(
   }
 }
 
+
 Status BlockBasedTable::Get(const ReadOptions& read_options, const Slice& key,
                             GetContext* get_context,
                             const SliceTransform* prefix_extractor,
@@ -3232,10 +3240,8 @@ Status BlockBasedTable::Get(const ReadOptions& read_options, const Slice& key,
   assert(get_context != nullptr);
   Status s;
   const bool no_io = read_options.read_tier == kBlockCacheTier;
-
   FilterBlockReader* const filter =
       !skip_filters ? rep_->filter.get() : nullptr;
-
   // First check the full filter
   // If full filter not useful, Then go into each block
   uint64_t tracing_get_id = get_context->get_tracing_get_id();

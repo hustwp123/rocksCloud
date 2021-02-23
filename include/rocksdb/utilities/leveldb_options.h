@@ -132,7 +132,7 @@ struct LevelDBOptions {
   // NewBloomFilterPolicy() here.
   //
   // Default: NULL
-  const FilterPolicy* filter_policy;
+  FilterPolicy* filter_policy;
 
   // Create a LevelDBOptions object with default values for all fields.
   LevelDBOptions();

@@ -95,6 +95,12 @@ class FilterBitsReader {
 // You can choose filter type in NewBloomFilterPolicy
 class FilterPolicy {
  public:
+  //wp
+  bool isPdt=false;
+  void setPdt(bool f)
+  {
+    isPdt=f;
+  }
   virtual ~FilterPolicy();
 
   // Return the name of this policy.  Note that if the filter encoding
@@ -127,7 +133,7 @@ class FilterPolicy {
   // It contains interface to tell if key can be in filter
   // The input slice should NOT be deleted by FilterPolicy
   virtual FilterBitsReader* GetFilterBitsReader(
-      const Slice& /*contents*/) const {
+      const Slice& /*contents*/,bool isPdt_=true) const {
     return nullptr;
   }
 };
@@ -150,7 +156,7 @@ class FilterPolicy {
 // ignores trailing spaces, it would be incorrect to use a
 // FilterPolicy (like NewBloomFilterPolicy) that does not ignore
 // trailing spaces in keys.
-extern const FilterPolicy* NewBloomFilterPolicy(
+extern FilterPolicy* NewBloomFilterPolicy(
     int bits_per_key, bool use_block_based_builder = false);
 
 

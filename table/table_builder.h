@@ -125,6 +125,8 @@ struct TableBuilderOptions {
 // external synchronization.
 class TableBuilder {
  public:
+  //wp
+  int output_level=0;
   // REQUIRES: Either Finish() or Abandon() has been called.
   virtual ~TableBuilder() {}
 

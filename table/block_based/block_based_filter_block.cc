@@ -173,7 +173,7 @@ BlockBasedFilterBlockReader::BlockBasedFilterBlockReader(
 std::unique_ptr<FilterBlockReader> BlockBasedFilterBlockReader::Create(
     const BlockBasedTable* table, FilePrefetchBuffer* prefetch_buffer,
     bool use_cache, bool prefetch, bool pin,
-    BlockCacheLookupContext* lookup_context) {
+    BlockCacheLookupContext* lookup_context,const int) {
   assert(table);
   assert(table->get_rep());
   assert(!pin || prefetch);

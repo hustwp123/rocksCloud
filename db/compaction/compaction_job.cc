@@ -573,6 +573,8 @@ Status CompactionJob::Run() {
   log_buffer_->FlushBufferToLog();
   LogCompaction();
 
+
+
   const size_t num_threads = compact_->sub_compact_states.size();
   assert(num_threads > 0);
   const uint64_t start_micros = env_->NowMicros();
@@ -585,6 +587,7 @@ Status CompactionJob::Run() {
                              &compact_->sub_compact_states[i]);
   }
 
+
   // Always schedule the first subcompaction (whether or not there are also
   // others) in the current thread to be efficient with resources
   ProcessKeyValueCompaction(&compact_->sub_compact_states[0]);
@@ -593,14 +596,12 @@ Status CompactionJob::Run() {
   for (auto& thread : thread_pool) {
     thread.join();
   }
-
   compaction_stats_.micros = env_->NowMicros() - start_micros;
   compaction_stats_.cpu_micros = 0;
   for (size_t i = 0; i < compact_->sub_compact_states.size(); i++) {
     compaction_stats_.cpu_micros +=
         compact_->sub_compact_states[i].compaction_job_stats.cpu_micros;
   }
-
   RecordTimeToHistogram(stats_, COMPACTION_TIME, compaction_stats_.micros);
   RecordTimeToHistogram(stats_, COMPACTION_CPU_TIME,
                         compaction_stats_.cpu_micros);
@@ -619,7 +620,6 @@ Status CompactionJob::Run() {
   if (status.ok() && output_directory_) {
     status = output_directory_->Fsync();
   }
-
   if (status.ok()) {
     thread_pool.clear();
     std::vector<const FileMetaData*> files_meta;
@@ -811,6 +811,7 @@ void CompactionJob::ProcessKeyValueCompaction(SubcompactionState* sub_compact) {
 
   ColumnFamilyData* cfd = sub_compact->compaction->column_family_data();
 
+ // fprintf(stderr,"ProcessKeyValueCompaction\n");
   // Create compaction filter and fail the compaction if
   // IgnoreSnapshots() = false because it is not supported anymore
   const CompactionFilter* compaction_filter =
@@ -827,6 +828,7 @@ void CompactionJob::ProcessKeyValueCompaction(SubcompactionState* sub_compact) {
         "anymore.");
     return;
   }
+ // fprintf(stderr,"ProcessKeyValueCompaction\1n");
 
   CompactionRangeDelAggregator range_del_agg(&cfd->internal_comparator(),
                                              existing_snapshots_);
@@ -858,7 +860,7 @@ void CompactionJob::ProcessKeyValueCompaction(SubcompactionState* sub_compact) {
     prev_cpu_write_nanos = IOSTATS(cpu_write_nanos);
     prev_cpu_read_nanos = IOSTATS(cpu_read_nanos);
   }
-
+//  fprintf(stderr,"ProcessKeyValueCompaction2\n");
   MergeHelper merge(
       env_, cfd->user_comparator(), cfd->ioptions()->merge_operator,
       compaction_filter, db_options_.info_log.get(),
@@ -878,7 +880,7 @@ void CompactionJob::ProcessKeyValueCompaction(SubcompactionState* sub_compact) {
   } else {
     input->SeekToFirst();
   }
-
+ // fprintf(stderr,"ProcessKeyValueCompaction3\n");
   Status status;
   sub_compact->c_iter.reset(new CompactionIterator(
       input.get(), cfd->user_comparator(), &merge, versions_->LastSequence(),
@@ -897,6 +899,7 @@ void CompactionJob::ProcessKeyValueCompaction(SubcompactionState* sub_compact) {
     sub_compact->ShouldStopBefore(c_iter->key(),
                                   sub_compact->current_output_file_size);
   }
+ // fprintf(stderr,"ProcessKeyValueCompaction4\n");
   const auto& c_iter_stats = c_iter->iter_stats();
 
   while (status.ok() && !cfd->IsDropped() && c_iter->Valid()) {
@@ -976,7 +979,7 @@ void CompactionJob::ProcessKeyValueCompaction(SubcompactionState* sub_compact) {
                         &sub_compact->compaction_job_stats);
     }
   }
-
+ // fprintf(stderr,"ProcessKeyValueCompaction5\n");
   sub_compact->num_input_records = c_iter_stats.num_input_records;
   sub_compact->compaction_job_stats.num_input_deletion_records =
       c_iter_stats.num_input_deletion_records;
@@ -1010,7 +1013,7 @@ void CompactionJob::ProcessKeyValueCompaction(SubcompactionState* sub_compact) {
   if (status.ok()) {
     status = c_iter->status();
   }
-
+//  fprintf(stderr,"ProcessKeyValueCompaction6\n");
   if (status.ok() && sub_compact->builder == nullptr &&
       sub_compact->outputs.size() == 0 && !range_del_agg.IsEmpty()) {
     // handle subcompaction containing only range deletions
@@ -1508,7 +1511,7 @@ Status CompactionJob::OpenCompactionOutputFile(
       sub_compact->compaction->output_compression_opts(),
       sub_compact->compaction->output_level(), skip_filters, latest_key_time,
       0 /* oldest_key_time */, sub_compact->compaction->max_output_file_size(),
-      current_time));
+      current_time,sub_compact->compaction->output_level()));
   LogFlush(db_options_.info_log);
   return s;
 }

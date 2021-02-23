@@ -40,7 +40,8 @@ Slice OtLexPdtFilterBlockBuilder::Finish(const BlockHandle& /*tmp*/,
   *status = Status::OK();
   if (num_added_ != 0) {
     num_added_ = 0;
-    return filter_bits_builder_->Finish(&filter_data_);
+    Slice s=filter_bits_builder_->Finish(&filter_data_);
+    return s;
   }
   return Slice();
 }
@@ -140,6 +141,7 @@ bool OtLexPdtFilterBlockReader::KeyMayMatch(
     uint64_t block_offset, const bool no_io,
     const Slice* const /*const_ikey_ptr*/, GetContext* get_context,
     BlockCacheLookupContext* lookup_context) {
+      //fprintf(stderr,"in OtLexPdtFilterBlockReader::KeyMayMatch\n");
 #ifdef NDEBUG
   (void)block_offset;
 #endif
@@ -153,7 +155,7 @@ bool OtLexPdtFilterBlockReader::KeyMayMatch(
 std::unique_ptr<FilterBlockReader> OtLexPdtFilterBlockReader::Create(
     const BlockBasedTable* table, FilePrefetchBuffer* prefetch_buffer,
     bool use_cache, bool prefetch, bool pin,
-    BlockCacheLookupContext* lookup_context) {
+    BlockCacheLookupContext* lookup_context,const int level) {
   assert(table);
   assert(table->get_rep());
   assert(!pin || prefetch);
@@ -163,7 +165,7 @@ std::unique_ptr<FilterBlockReader> OtLexPdtFilterBlockReader::Create(
 //    fprintf(stderr, "DEBUG 9d533h in OtLexPdtFiltBlockReader::Create()\n");
     const Status s = ReadFilterBlock(table, prefetch_buffer, ReadOptions(),
                                      use_cache, nullptr /* get_context */,
-                                     lookup_context, &filter_block);
+                                     lookup_context, &filter_block,level);
     if (!s.ok()) {
       return std::unique_ptr<FilterBlockReader>();
     }
@@ -207,10 +209,6 @@ bool OtLexPdtFilterBlockReader::MayMatch(
        filter_block.GetValue()->filter_bits_reader();
 
 
-  //wp
-  // std::unique_ptr<FilterBitsReader> filter_bits_reader(
-  //       table()->get_rep()->filter_policy->GetFilterBitsReader(
-  //           filter_block.GetValue()->data));
 
   if (filter_bits_reader) {
 //    fprintf(stderr, "DEBUG b9qicb filter_bits_reader is NOT nullptr\n");
@@ -270,10 +268,6 @@ void OtLexPdtFilterBlockReader::MayMatch(
   // FilterBitsReader* const filter_bits_reader =
   //     filter_block.GetValue()->filter_bits_reader();
 
-  //wp
-  // std::unique_ptr<FilterBitsReader> filter_bits_reader(
-  //     table()->get_rep()->filter_policy->GetFilterBitsReader(
-  //         filter_block.GetValue()->data));
   FilterBitsReader* const filter_bits_reader =
       filter_block.GetValue()->filter_bits_reader();
 
@@ -405,6 +399,8 @@ bool FullFilterBlockReader::KeyMayMatch(
     uint64_t block_offset, const bool no_io,
     const Slice* const /*const_ikey_ptr*/, GetContext* get_context,
     BlockCacheLookupContext* lookup_context) {
+      //fprintf(stderr,"in FullFilterBlockReader::KeyMayMatch\n");
+      //return true;
 #ifdef NDEBUG
   (void)block_offset;
 #endif
@@ -418,7 +414,7 @@ bool FullFilterBlockReader::KeyMayMatch(
 std::unique_ptr<FilterBlockReader> FullFilterBlockReader::Create(
     const BlockBasedTable* table, FilePrefetchBuffer* prefetch_buffer,
     bool use_cache, bool prefetch, bool pin,
-    BlockCacheLookupContext* lookup_context) {
+    BlockCacheLookupContext* lookup_context,const int level) {
   assert(table);
   assert(table->get_rep());
   assert(!pin || prefetch);
@@ -427,7 +423,7 @@ std::unique_ptr<FilterBlockReader> FullFilterBlockReader::Create(
   if (prefetch || !use_cache) {
     const Status s = ReadFilterBlock(table, prefetch_buffer, ReadOptions(),
                                      use_cache, nullptr /* get_context */,
-                                     lookup_context, &filter_block);
+                                     lookup_context, &filter_block,level);
     if (!s.ok()) {
       return std::unique_ptr<FilterBlockReader>();
     }
@@ -457,24 +453,21 @@ bool FullFilterBlockReader::MayMatch(
     const Slice& entry, bool no_io, GetContext* get_context,
     BlockCacheLookupContext* lookup_context) const {
   CachableEntry<BlockContents> filter_block;
-
   const Status s =
       GetOrReadFilterBlock(no_io, get_context, lookup_context, &filter_block);
   if (!s.ok()) {
     return true;
   }
-
   assert(filter_block.GetValue());
 
   if (filter_block.GetValue()->data.size() != 0) {
     assert(table());
     assert(table()->get_rep());
-
+  //table()->get_rep()->filter_policy->setPdt(false);
     std::unique_ptr<FilterBitsReader> filter_bits_reader(
         table()->get_rep()->filter_policy->GetFilterBitsReader(
-            filter_block.GetValue()->data));
+            filter_block.GetValue()->data,false));
     assert(filter_bits_reader != nullptr);
-
     if (filter_bits_reader->MayMatch(entry)) {
       PERF_COUNTER_ADD(bloom_sst_hit_count, 1);
       return true;
@@ -537,7 +530,7 @@ void FullFilterBlockReader::MayMatch(
 
   std::unique_ptr<FilterBitsReader> filter_bits_reader(
       table()->get_rep()->filter_policy->GetFilterBitsReader(
-          filter_block.GetValue()->data));
+          filter_block.GetValue()->data,false));
   assert(filter_bits_reader != nullptr);
 
   // We need to use an array instead of autovector for may_match since

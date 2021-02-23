@@ -112,7 +112,7 @@ public:
         return nullptr;
     }
 
-    FilterBitsReader* GetFilterBitsReader(const Slice& /*contents*/) const {
+    FilterBitsReader* GetFilterBitsReader(const Slice& /*contents*/,bool) const {
         return nullptr;
     }
 private:
