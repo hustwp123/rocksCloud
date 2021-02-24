@@ -249,7 +249,7 @@ class OtLexPdtBloomBitsBuilder : public FilterBitsBuilder {
     uint64_t* p3 = (uint64_t*)(buf + 4 + v1.size() * 2 + 4 + v2.size() * 2 + 4 +
                                v3.size() + 4 + v4.size() + 4 + v5.size() * 8);
     *p3 = num;
-    fprintf(stderr, "DEBUG yz92dt PutIntoCharArray num: %lu, *p3:%lu\n", num, *p3);
+    //fprintf(stderr, "DEBUG yz92dt PutIntoCharArray num: %lu, *p3:%lu\n", num, *p3);
 
     // new bloom filter implementation indicators for GetBloomBitsReader
     char* pc1 = (char*)(buf + 4 + v1.size() * 2 + 4 + v2.size() * 2 + 4 +
