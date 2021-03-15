@@ -156,7 +156,7 @@ Status ReadBlockFromFile(
     const UncompressionDict& uncompression_dict,
     const PersistentCacheOptions& cache_options, SequenceNumber global_seqno,
     size_t read_amp_bytes_per_bit, MemoryAllocator* memory_allocator,
-    bool for_compaction, bool using_zstd,const FilterPolicy* filter_policy,bool is_meta_block=false) {
+    bool for_compaction, bool using_zstd,const FilterPolicy* filter_policy,int level,bool is_meta_block=false) {
   assert(result);
 
   BlockContents contents;
@@ -164,7 +164,7 @@ Status ReadBlockFromFile(
       file, prefetch_buffer, footer, options, handle, &contents, ioptions,
       do_uncompress, maybe_compressed, block_type, uncompression_dict,
       cache_options, memory_allocator, nullptr, for_compaction);
-  Status s = block_fetcher.ReadBlockContents(is_meta_block);
+  Status s = block_fetcher.ReadBlockContents(level,is_meta_block);
   if (s.ok()) {
     result->reset(BlocklikeTraits<TBlocklike>::Create(
         std::move(contents), global_seqno, read_amp_bytes_per_bit,
@@ -1648,7 +1648,7 @@ Status BlockBasedTable::ReadMetaBlock(FilePrefetchBuffer* prefetch_buffer,
       UncompressionDict::GetEmptyDict(), rep_->persistent_cache_options,
       kDisableGlobalSequenceNumber, 0 /* read_amp_bytes_per_bit */,
       GetMemoryAllocator(rep_->table_options), false /* for_compaction */,
-      rep_->blocks_definitely_zstd_compressed,nullptr);
+      rep_->blocks_definitely_zstd_compressed,nullptr,rep_->level);
 
   if (!s.ok()) {
     ROCKS_LOG_ERROR(rep_->ioptions.info_log,
@@ -2212,7 +2212,7 @@ Status BlockBasedTable::MaybeReadBlockAndLoadToCache(
             rep_->persistent_cache_options,
             GetMemoryAllocator(rep_->table_options),
             GetMemoryAllocatorForCompressedBlock(rep_->table_options));
-        s = block_fetcher.ReadBlockContents(is_meta_block);
+        s = block_fetcher.ReadBlockContents(rep_->level,is_meta_block);
         raw_block_comp_type = block_fetcher.get_compression_type();
         contents = &raw_block_contents;
       } else {
@@ -2516,7 +2516,7 @@ Status BlockBasedTable::RetrieveBlock(
             : 0,
         GetMemoryAllocator(rep_->table_options), for_compaction,
         rep_->blocks_definitely_zstd_compressed,
-        rep_->table_options.filter_policy.get());
+        rep_->table_options.filter_policy.get(),rep_->level);
   }
 
   if (!s.ok()) {
