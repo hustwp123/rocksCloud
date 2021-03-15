@@ -11,7 +11,7 @@ namespace rocksdb {
 
 void PersistentCacheHelper::InsertRawPage(
     const PersistentCacheOptions& cache_options, const BlockHandle& handle,
-    const char* data, const size_t size,bool is_meta_block) {
+    const char* data, const size_t size,bool is_meta_block,std::string fname) {
   assert(cache_options.persistent_cache);
   assert(cache_options.persistent_cache->IsCompressed());
 
@@ -21,12 +21,12 @@ void PersistentCacheHelper::InsertRawPage(
                                           cache_options.key_prefix.size(),
                                           handle, cache_key);
   // insert content to cache
-  cache_options.persistent_cache->Insert(key, data, size,is_meta_block);
+  cache_options.persistent_cache->Insert(key, data, size,is_meta_block,fname);
 }
 
 void PersistentCacheHelper::InsertUncompressedPage(
     const PersistentCacheOptions& cache_options, const BlockHandle& handle,
-    const BlockContents& contents,bool is_meta_block) {
+    const BlockContents& contents,bool is_meta_block,std::string fname) {
   assert(cache_options.persistent_cache);
   assert(!cache_options.persistent_cache->IsCompressed());
   // Precondition:
@@ -40,12 +40,12 @@ void PersistentCacheHelper::InsertUncompressedPage(
                                           handle, cache_key);
   // insert block contents to page cache
   cache_options.persistent_cache->Insert(key, contents.data.data(),
-                                         contents.data.size(),is_meta_block);
+                                         contents.data.size(),is_meta_block,fname);
 }
 
 Status PersistentCacheHelper::LookupRawPage(
     const PersistentCacheOptions& cache_options, const BlockHandle& handle,
-    std::unique_ptr<char[]>* raw_data, const size_t raw_data_size) {
+    std::unique_ptr<char[]>* raw_data, const size_t raw_data_size,std::string fname) {
 #ifdef NDEBUG
   (void)raw_data_size;
 #endif
@@ -59,7 +59,7 @@ Status PersistentCacheHelper::LookupRawPage(
                                           handle, cache_key);
   // Lookup page
   size_t size;
-  Status s = cache_options.persistent_cache->Lookup(key, raw_data, &size);
+  Status s = cache_options.persistent_cache->Lookup(key, raw_data, &size,fname);
   if (!s.ok()) {
     // cache miss
     RecordTick(cache_options.statistics, PERSISTENT_CACHE_MISS);
@@ -75,7 +75,7 @@ Status PersistentCacheHelper::LookupRawPage(
 
 Status PersistentCacheHelper::LookupUncompressedPage(
     const PersistentCacheOptions& cache_options, const BlockHandle& handle,
-    BlockContents* contents) {
+    BlockContents* contents,std::string fname) {
   assert(cache_options.persistent_cache);
   assert(!cache_options.persistent_cache->IsCompressed());
   if (!contents) {
@@ -92,7 +92,7 @@ Status PersistentCacheHelper::LookupUncompressedPage(
   // Lookup page
   std::unique_ptr<char[]> data;
   size_t size;
-  Status s = cache_options.persistent_cache->Lookup(key, &data, &size);
+  Status s = cache_options.persistent_cache->Lookup(key, &data, &size,fname);
   if (!s.ok()) {
     // cache miss
     RecordTick(cache_options.statistics, PERSISTENT_CACHE_MISS);

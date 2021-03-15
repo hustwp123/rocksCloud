@@ -34,7 +34,7 @@ class PersistentCache {
   // data       Page data
   // size       Size of the page
   virtual Status Insert(const Slice& key, const char* data,
-                        const size_t size, bool is_meta_block=false) = 0;
+                        const size_t size, bool is_meta_block=false,std::string fanme = "") = 0;
 
   // Lookup page cache by page identifier
   //
@@ -42,7 +42,7 @@ class PersistentCache {
   // buf        Buffer where the data should be copied
   // size       Size of the page
   virtual Status Lookup(const Slice& key, std::unique_ptr<char[]>* data,
-                        size_t* size) = 0;
+                        size_t* size,std::string fanme = "") = 0;
 
   // Is cache storing uncompressed data ?
   //

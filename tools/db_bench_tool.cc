@@ -3425,8 +3425,8 @@ fprintf(stderr,"test5\n");
     printf("Initializing RocksDB Options from command-line flags\n");
     Options& options = *opts;
 
-    options.db_paths={{"/home/wp/400G/wp/db1",1l*1024*1024*1024},
-    {"/home/wp/400G/wp/db2",10l*1024*1024*1024}};
+    options.db_paths={{"/home/will/wpdb/db1",1l*1024*1024*1024},
+    {"/home/will/wpdb/db2",10l*1024*1024*1024}};
     assert(db_.db == nullptr);
 
     options.max_open_files = FLAGS_open_files;
@@ -3652,7 +3652,8 @@ fprintf(stderr,"test5\n");
           rc_cfg.writer_qdepth = 4;
           rc_cfg.writer_dispatch_size = 4 * 1024;
 
-          auto pcache = std::make_shared<BlockCacheTier>(rc_cfg);
+          //auto pcache = std::make_shared<BlockCacheTier>(rc_cfg);
+          auto pcache = std::make_shared<myCache>(rc_cfg);
           block_based_options.persistent_cache = pcache;
           rc_status = pcache->Open();
         }

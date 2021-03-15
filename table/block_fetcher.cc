@@ -71,7 +71,7 @@ inline bool BlockFetcher::TryGetUncompressBlockFromPersistentCache() {
   if (cache_options_.persistent_cache &&
       !cache_options_.persistent_cache->IsCompressed()) {
     Status status = PersistentCacheHelper::LookupUncompressedPage(
-        cache_options_, handle_, contents_);
+        cache_options_, handle_, contents_,file_->file_name());
     if (status.ok()) {
       // uncompressed page is found for the block handle
       return true;
@@ -111,7 +111,7 @@ inline bool BlockFetcher::TryGetCompressedBlockFromPersistentCache() {
     // lookup uncompressed cache mode p-cache
     std::unique_ptr<char[]> raw_data;
     status_ = PersistentCacheHelper::LookupRawPage(
-        cache_options_, handle_, &raw_data, block_size_ + kBlockTrailerSize);
+        cache_options_, handle_, &raw_data, block_size_ + kBlockTrailerSize,file_->file_name());
     if (status_.ok()) {
       heap_buf_ = CacheAllocationPtr(raw_data.release());
       used_buf_ = heap_buf_.get();
@@ -151,7 +151,7 @@ inline void BlockFetcher::InsertCompressedBlockToPersistentCacheIfNeeded(bool is
       cache_options_.persistent_cache->IsCompressed()) {
     // insert to raw cache
     PersistentCacheHelper::InsertRawPage(cache_options_, handle_, used_buf_,
-                                         block_size_ + kBlockTrailerSize,is_meta_block);
+                                         block_size_ + kBlockTrailerSize,is_meta_block,file_->file_name());
   }
 }
 
@@ -161,7 +161,7 @@ inline void BlockFetcher::InsertUncompressedBlockToPersistentCacheIfNeeded(bool 
       !cache_options_.persistent_cache->IsCompressed()) {
     // insert to uncompressed cache
     PersistentCacheHelper::InsertUncompressedPage(cache_options_, handle_,
-                                                  *contents_,is_meta_block);
+                                                  *contents_,is_meta_block,file_->file_name());
   }
 }
 

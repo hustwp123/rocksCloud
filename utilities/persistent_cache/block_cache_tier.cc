@@ -10,6 +10,8 @@
 #include <utility>
 #include <vector>
 
+
+
 #include "logging/logging.h"
 #include "port/port.h"
 #include "test_util/sync_point.h"
@@ -197,7 +199,7 @@ PersistentCache::StatsType BlockCacheTier::Stats() {
 }
 
 Status BlockCacheTier::Insert(const Slice& key, const char* data,
-                              const size_t size, bool is_meta_block) {
+                              const size_t size, bool is_meta_block,std::string) {
   // update stats
   stats_.bytes_pipelined_.Add(size);
 
@@ -327,7 +329,7 @@ Status BlockCacheTier::InsertImpl(const Slice& key, const Slice& data,bool is_me
 }
 
 Status BlockCacheTier::Lookup(const Slice& key, std::unique_ptr<char[]>* val,
-                              size_t* size) {
+                              size_t* size,std::string) {
     StopWatchNano timer(opt_.env, /*auto_start=*/true);
 
   bool find_in_meta_block = false;
@@ -582,6 +584,350 @@ Status NewPersistentCache(Env* const env, const std::string& path,
   *cache = pcache;
   return s;
 }
+
+// wp
+
+Status SST_space::Get(const std::string key, std::unique_ptr<char[]>* data,
+                      size_t* size) {
+  MutexLock _(&lock);
+  if (!cache.count(key)) {
+    return Status::NotFound("Mycache not found");
+  }
+  DLinkedNode* node = cache[key];
+  moveToHead(node);
+  data->reset(new char[node->value.size]);
+  *size = node->value.size;
+  size_t cur = 0;
+  for (uint32_t i = 0; i < (node->value.offset.size() - 1); i++) {
+    ssize_t t =
+        pread(fd, data->get() + cur, SPACE_SIZE, begin + node->value.offset[i]);
+    if (t < 0) {
+      return Status::IOError();
+    }
+    cur += SPACE_SIZE;
+  }
+  int left_size = node->value.size % SPACE_SIZE == 0
+                      ? SPACE_SIZE
+                      : node->value.size % SPACE_SIZE;
+  int index = node->value.offset.size() - 1;
+  ssize_t t = pread(fd, data->get() + cur, left_size,
+                    begin + node->value.offset[index]);
+  if (t < 0) {
+    return Status::IOError();
+  }
+  return Status::OK();
+}
+std::string SST_space::Get(std::string key) {
+  MutexLock _(&lock);
+  if (!cache.count(key)) {
+    return "";
+  }
+  DLinkedNode* node = cache[key];
+  moveToHead(node);
+  char* s = new char[node->value.size + 1];
+  size_t cur = 0;
+  for (uint32_t i = 0; i < (node->value.offset.size() - 1); i++) {
+    ssize_t t = pread(fd, s + cur, SPACE_SIZE, begin + node->value.offset[i]);
+    if (t < 0) {
+      return "";
+    }
+
+    cur += SPACE_SIZE;
+  }
+  int left_size = node->value.size % SPACE_SIZE == 0
+                      ? SPACE_SIZE
+                      : node->value.size % SPACE_SIZE;
+  int index = node->value.offset.size() - 1;
+  ssize_t t = pread(fd, s + cur, left_size, begin + node->value.offset[index]);
+  if (t < 0) {
+    return "";
+  }
+  s[node->value.size] = '\0';
+  std::string re = std::string(s, node->value.size);
+  delete[] s;
+  return re;
+}
+
+Status SST_space::Put(const std::string key, const char* data,
+                      const size_t size) {
+  MutexLock _(&lock);
+  if (size == 0) {
+    return Status::OK();
+  }
+  uint32_t need_num = size / SPACE_SIZE;
+  need_num += size % SPACE_SIZE == 0 ? 0 : 1;
+  if (need_num > all_num) {
+    return Status::OK();
+  }
+
+  DLinkedNode* node;
+  if (!cache.count(key))  // key不存在 创建新节点
+  {
+    node = new DLinkedNode();
+    node->key = key;
+    node->value.offset.clear();
+    cache[key] = node;
+    addToHead(node);
+    while (need_num > empty_num) {
+      DLinkedNode* removed = removeTail();
+      cache.erase(removed->key);
+      removeRecord(&(removed->value));
+      delete removed;
+    }
+  } else {
+    node = cache[key];
+    moveToHead(node);
+    removeRecord(&(node->value));
+    while (need_num > empty_num) {
+      DLinkedNode* removed = removeTail();
+      cache.erase(removed->key);
+      removeRecord(&(removed->value));
+      delete removed;
+    }
+  }
+  //取块
+  uint32_t num = 0, j = 0;
+  while (j < bit_map.size()) {
+    if (!bit_map[j]) {
+      bit_map[j] = 1;
+      node->value.offset.push_back(j * SPACE_SIZE);
+      num++;
+      if (num == need_num) {
+        break;
+      }
+    }
+    j++;
+  }
+  //写块
+  size_t cur = 0;
+  for (uint32_t i = 0; i < node->value.offset.size() - 1; i++) {
+    ssize_t t =
+        pwrite(fd, data + cur, SPACE_SIZE, begin + node->value.offset[i]);
+    if (t < 0) {
+      return Status::IOError();
+    }
+    cur += SPACE_SIZE;
+  }
+  node->value.size = size;
+  size_t left_size = size % SPACE_SIZE == 0 ? SPACE_SIZE : size % SPACE_SIZE;
+  int index = node->value.offset.size() - 1;
+
+  ssize_t t =
+      pwrite(fd, data + cur, left_size, begin + node->value.offset[index]);
+  if (t < 0) {
+    return Status::IOError();
+  }
+
+  empty_num -= need_num;
+  return Status::OK();
+}
+void SST_space::Put(const std::string& key, const std::string& value,
+                    uint64_t& out,int ) {
+  MutexLock _(&lock);
+  if (value.size() == 0) {
+    return;
+  }
+  uint32_t need_num = value.size() / SPACE_SIZE;
+  need_num += value.size() % SPACE_SIZE == 0 ? 0 : 1;
+  if (need_num > all_num) {
+    return;
+  }
+  DLinkedNode* node;
+  if (!cache.count(key))  // key不存在 创建新节点
+  {
+    node = new DLinkedNode();
+    node->key = key;
+    node->value.offset.clear();
+    cache[key] = node;
+    addToHead(node);
+    while (need_num > empty_num) {
+      out++;
+      DLinkedNode* removed = removeTail();
+      cache.erase(removed->key);
+      removeRecord(&(removed->value));
+      delete removed;
+    }
+  } else {
+    node = cache[key];
+    moveToHead(node);
+    removeRecord(&(node->value));
+    while (need_num > empty_num) {
+      out++;
+      DLinkedNode* removed = removeTail();
+      cache.erase(removed->key);
+      removeRecord(&(removed->value));
+      delete removed;
+    }
+  }
+  //取块
+  uint32_t num = 0, j = 0;
+  while (j < bit_map.size()) {
+    if (!bit_map[j]) {
+      bit_map[j] = 1;
+      node->value.offset.push_back(j * SPACE_SIZE);
+      num++;
+      if (num == need_num) {
+        break;
+      }
+    }
+    j++;
+  }
+  //写块
+  size_t cur = 0;
+  for (uint32_t i = 0; i < node->value.offset.size() - 1; i++) {
+    ssize_t t = pwrite(fd, value.c_str() + cur, SPACE_SIZE,
+                       begin + node->value.offset[i]);
+    if (t < 0) {
+      return;
+    }
+    cur += SPACE_SIZE;
+  }
+  node->value.size = value.size();
+  size_t left_size =
+      value.size() % SPACE_SIZE == 0 ? SPACE_SIZE : value.size() % SPACE_SIZE;
+  int index = node->value.offset.size() - 1;
+  ssize_t t = pwrite(fd, value.c_str() + cur, left_size,
+                     begin + node->value.offset[index]);
+  if (t < 0) {
+    return;
+  }
+  empty_num -= need_num;
+  
+}
+Status myCache::InsertImpl(const Slice& key, const char* data,
+                           const size_t size, std::string fname) {
+  // MutexLock _(&lock_);
+  std::string skey(key.data(), key.size());
+  int index = getIndex(fname);
+  Status s = v[index].Put(skey, data, size);
+  return s;
+}
+
+Status myCache::Insert(const Slice& key, const char* data, const size_t size,bool,
+                       std::string fname) {
+  // Insert2(std::string(key.data(), key.size()), std::string(data, size), fname);
+  // return Status::OK();
+  if (opt_.pipeline_writes) {
+    insert_ops_.Push(myInsertOp(
+        key.ToString(), std::move(std::string(data, size)), std::move(fname)));
+    return Status::OK();
+  }
+  Insert2(std::string(key.data(), key.size()), std::string(data, size), fname);
+  return Status::OK();
+}
+void myCache::InsertMain() {
+  while (true) {
+    myInsertOp op(insert_ops_.Pop());
+
+    if (op.signal_) {
+      // that is a secret signal to exit
+      break;
+    }
+    Insert2(op.key_, op.value_, op.fname_);
+  }
+}
+
+Status myCache::Lookup(const Slice& key, std::unique_ptr<char[]>* data,
+                       size_t* size, std::string fname) {
+  // MutexLock _(&lock_);
+  std::string skey(key.data(), key.size());
+  int index = getIndex(fname);
+  Status s = v[index].Get(skey, data, size);
+
+  return s;
+}
+
+Status myCache::Insert2(const std::string& key, const std::string& value,
+                        std::string& fname) {
+  // MutexLock _(&lock_);
+  int index = getIndex(fname, true);
+  v[index].Put(key, value, outall,index);
+  return Status::OK();
+}
+
+int myCache::getIndex(std::string fname, bool ) {
+  if (fname.size() == 0) {
+    return 0;
+  }
+  int i = fname.size() - 1;
+  while (fname[i] != '.') {
+    i--;
+  }
+  i--;
+  int j = i;
+  int sum = 0;
+  while (fname[i] >= '0' && fname[i] <= '9' && i >= 0) {
+    i--;
+  }
+  i++;
+  while (fname[i] == '0') {
+    i++;
+  }
+  while (j >= i) {
+    sum = sum * 10 + fname[i] - '0';
+    i++;
+  }
+
+  return sum % NUM;
+}
+
+Status myCache::Open() {
+  // MutexLock _(&lock_);
+  std::string path = opt_.path;
+  path += "/pcache_file";
+  // std::string path2 = path + "Get_sst";
+   //std::string path3 = path + "Put_sst";
+  
+  // fp = fopen(path2.c_str(), "w+");
+   //fp2 = fopen(path3.c_str(), "w+");
+  fd = open(path.c_str(), O_RDWR | O_CREAT | O_TRUNC, 0777);
+  lseek(fd, opt_.cache_size, SEEK_SET);
+  int t = -1;
+  ssize_t tt = write(fd, &t, sizeof(int));
+  if (tt < 0) {
+    return Status::IOError();
+  }
+
+  NUM = opt_.cache_size / SST_SIZE;
+  // v.resize(NUM);
+  for (int i = 0; i < NUM; i++) {
+    v[i].Set_Par(fd, SST_SIZE / SPACE_SIZE, i * SST_SIZE);
+  }
+  if (opt_.pipeline_writes) {
+    insert_th_ = port::Thread(&myCache::InsertMain, this);
+  }
+  return Status::OK();
+}
+Status myCache::Close() {
+  // MutexLock _(&lock_);
+  if (opt_.pipeline_writes && insert_th_.joinable()) {
+    myInsertOp op(/*quit=*/true);
+    insert_ops_.Push(std::move(op));
+    insert_th_.join();
+  }
+  close(fd);
+  // fclose(fp);
+   //fclose(fp2);
+  uint64_t all_empty_num=0;
+  for(int i=0;i<NUM;i++)
+  {
+    all_empty_num+=v[i].empty_num;
+  }
+
+  fprintf(stderr,"/n/n\n all_empty_num=%ld \n",all_empty_num);
+  fprintf(stderr, "/n/n\n outall=%ld\n", outall);
+  return Status::OK();
+}
+bool myCache::Erase(const Slice& ) {
+  return true;
+}
+bool myCache::Reserve(const size_t ,bool) {
+  return true;
+}
+
+bool myCache::IsCompressed() { return opt_.is_compressed; }
+
+std::string myCache::GetPrintableOptions() const { return opt_.ToString(); }
 
 }  // namespace rocksdb
 
