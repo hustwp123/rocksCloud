@@ -279,7 +279,8 @@ uint64_t bp_vector::find_open(uint64_t pos) const {
 
   // Otherwise, find the first appropriate block
   excess_t pos_excess = excess(pos) - 1;
-  uint64_t found_block = search_min_tree<0>(block - 1, pos_excess);
+  uint64_t found_block=0;
+  found_block = search_min_tree<0>(block - 1, pos_excess);
   uint64_t found_block_offset = found_block * bp_block_size;
   // Since search is backwards, have to add the current block
   excess_t found_block_excess = get_block_excess(found_block + 1);
