@@ -108,11 +108,11 @@ public:
         return res != -1;
     }
 
-    FilterBitsBuilder* GetFilterBitsBuilder() const {
+    FilterBitsBuilder* GetFilterBitsBuilder(bool) const {
         return nullptr;
     }
 
-    FilterBitsReader* GetFilterBitsReader(const Slice& /*contents*/) const {
+    FilterBitsReader* GetFilterBitsReader(const Slice& /*contents*/,bool) const {
         return nullptr;
     }
 private:

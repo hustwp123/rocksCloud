@@ -84,10 +84,10 @@ class OtLexPdtFilterBlockBuilder : public FilterBlockBuilder {
 // A FilterBlockReader is used to parse filter from SST table.
 // KeyMayMatch and PrefixMayMatch would trigger filter checking
 class OtLexPdtFilterBlockReader
-    : public FilterBlockReaderCommon<ParsedFullFilterBlock> {
+    : public FilterBlockReaderCommon<BlockContents> {
  public:
   OtLexPdtFilterBlockReader(const BlockBasedTable* t,
-                        CachableEntry<ParsedFullFilterBlock>&& filter_block);
+                        CachableEntry<BlockContents>&& filter_block);
 
   static std::unique_ptr<FilterBlockReader> Create(
       const BlockBasedTable* table, FilePrefetchBuffer* prefetch_buffer,

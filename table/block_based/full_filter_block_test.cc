@@ -91,11 +91,11 @@ class TestHashFilter : public FilterPolicy {
     return false;
   }
 
-  FilterBitsBuilder* GetFilterBitsBuilder() const override {
+  FilterBitsBuilder* GetFilterBitsBuilder(bool isPdt=false) const override {
     return new TestFilterBitsBuilder();
   }
 
-  FilterBitsReader* GetFilterBitsReader(const Slice& contents) const override {
+  FilterBitsReader* GetFilterBitsReader(const Slice& contents,bool) const override {
     return new TestFilterBitsReader(contents);
   }
 };

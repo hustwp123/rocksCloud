@@ -94,6 +94,7 @@ class FilterBitsReader {
 // it would use Set 1 instead.
 // You can choose filter type in NewBloomFilterPolicy
 class FilterPolicy {
+
  public:
   virtual ~FilterPolicy();
 
@@ -121,13 +122,13 @@ class FilterPolicy {
 
   // Get the FilterBitsBuilder, which is ONLY used for full filter block
   // It contains interface to take individual key, then generate filter
-  virtual FilterBitsBuilder* GetFilterBitsBuilder() const { return nullptr; }
+  virtual FilterBitsBuilder* GetFilterBitsBuilder(bool isPdt=false) const { return nullptr; }
 
   // Get the FilterBitsReader, which is ONLY used for full filter block
   // It contains interface to tell if key can be in filter
   // The input slice should NOT be deleted by FilterPolicy
   virtual FilterBitsReader* GetFilterBitsReader(
-      const Slice& /*contents*/) const {
+      const Slice& /*contents*/,bool) const {
     return nullptr;
   }
 };

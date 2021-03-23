@@ -34,6 +34,8 @@ extern const uint64_t kLegacyBlockBasedTableMagicNumber;
 
 class BlockBasedTableBuilder : public TableBuilder {
  public:
+    //wp
+    int level;
   // Create a builder that will store the contents of the table it is
   // building in *file.  Does not close the file.  It is up to the
   // caller to close the file after calling Finish().
@@ -46,7 +48,7 @@ class BlockBasedTableBuilder : public TableBuilder {
       uint32_t column_family_id, WritableFileWriter* file,
       const CompressionType compression_type,
       const uint64_t sample_for_compression,
-      const CompressionOptions& compression_opts, const bool skip_filters,
+      const CompressionOptions& compression_opts, const bool skip_filters,const int level,
       const std::string& column_family_name, const uint64_t creation_time = 0,
       const uint64_t oldest_key_time = 0, const uint64_t target_file_size = 0,
       const uint64_t file_creation_time = 0);

@@ -64,11 +64,23 @@ FilterBlockBuilder* CreateFilterBlockBuilder(
     const ImmutableCFOptions& /*opt*/, const MutableCFOptions& mopt,
     const BlockBasedTableOptions& table_opt,
     const bool use_delta_encoding_for_index_values,
-    PartitionedIndexBuilder* const p_index_builder) {
+    PartitionedIndexBuilder* const p_index_builder,int level) {
   if (table_opt.filter_policy == nullptr) return nullptr;
 
-  FilterBitsBuilder* filter_bits_builder =
-      table_opt.filter_policy->GetFilterBitsBuilder();
+  FilterBitsBuilder* filter_bits_builder;
+
+  if(level>=2)
+  {
+     filter_bits_builder=
+      table_opt.filter_policy->GetFilterBitsBuilder(true);
+  }
+  else
+  {
+    filter_bits_builder=
+      table_opt.filter_policy->GetFilterBitsBuilder(false);
+  }
+  
+  
   if (filter_bits_builder == nullptr) {
     return new BlockBasedFilterBlockBuilder(mopt.prefix_extractor.get(),
                                             table_opt);
@@ -90,7 +102,7 @@ FilterBlockBuilder* CreateFilterBlockBuilder(
           filter_bits_builder, table_opt.index_block_restart_interval,
           use_delta_encoding_for_index_values, p_index_builder, partition_size);
     } else {
-      if(table_opt.use_pdt)
+      if(level>1)
       {
         return new OtLexPdtFilterBlockBuilder(filter_bits_builder);
       }
@@ -373,7 +385,7 @@ struct BlockBasedTableBuilder::Rep {
       const CompressionOptions& _compression_opts, const bool skip_filters,
       const std::string& _column_family_name, const uint64_t _creation_time,
       const uint64_t _oldest_key_time, const uint64_t _target_file_size,
-      const uint64_t _file_creation_time)
+      const uint64_t _file_creation_time,int level)
       : ioptions(_ioptions),
         moptions(_moptions),
         table_options(table_opt),
@@ -429,7 +441,7 @@ struct BlockBasedTableBuilder::Rep {
     } else {
       filter_builder.reset(CreateFilterBlockBuilder(
           _ioptions, _moptions, table_options,
-          use_delta_encoding_for_index_values, p_index_builder_));
+          use_delta_encoding_for_index_values, p_index_builder_,level));
     }
 
     for (auto& collector_factories : *int_tbl_prop_collector_factories) {
@@ -461,10 +473,12 @@ BlockBasedTableBuilder::BlockBasedTableBuilder(
     uint32_t column_family_id, WritableFileWriter* file,
     const CompressionType compression_type,
     const uint64_t sample_for_compression,
-    const CompressionOptions& compression_opts, const bool skip_filters,
+    const CompressionOptions& compression_opts, const bool skip_filters,const int level_,
     const std::string& column_family_name, const uint64_t creation_time,
     const uint64_t oldest_key_time, const uint64_t target_file_size,
-    const uint64_t file_creation_time) {
+    const uint64_t file_creation_time) 
+    {
+      level=level_;
   BlockBasedTableOptions sanitized_table_options(table_options);
   if (sanitized_table_options.format_version == 0 &&
       sanitized_table_options.checksum != kCRC32c) {
@@ -482,7 +496,7 @@ BlockBasedTableBuilder::BlockBasedTableBuilder(
               int_tbl_prop_collector_factories, column_family_id, file,
               compression_type, sample_for_compression, compression_opts,
               skip_filters, column_family_name, creation_time, oldest_key_time,
-              target_file_size, file_creation_time);
+              target_file_size, file_creation_time,level_);
 
   if (rep_->filter_builder != nullptr) {
     rep_->filter_builder->StartBlock(0);
@@ -864,7 +878,7 @@ void BlockBasedTableBuilder::WriteFilterBlock(
       }
       else
       {
-        if(rep_->table_options.use_pdt) {
+        if(level>1) {
           key = BlockBasedTable::kOtLexPdtFilterBlockPrefix;
         }
         else {
