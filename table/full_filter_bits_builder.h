@@ -230,7 +230,7 @@ class OtLexPdtBloomBitsBuilder : public FilterBitsBuilder {
     p = (uint32_t*)(buf + 4 + v1.size() * 2 + 4 + v2.size() * 2 + 4 +
                     v3.size() + 4 + v4.size());
     *p = v5.size();
-    //fprintf(stderr, "DEBUG h8qd8z PutIntoCharArray m_bits.size(): %u\n", *p);
+    // fprintf(stderr, "DEBUG h8qd8z PutIntoCharArray m_bits.size(): %u\n", *p);
     uint64_t* p4 = (uint64_t*)(buf + 4 + v1.size() * 2 + 4 + v2.size() * 2 + 4 +
                                v3.size() + 4 + v4.size() + 4);
     for (uint32_t i = 0; i < v5.size(); i++) {

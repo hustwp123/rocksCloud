@@ -79,7 +79,8 @@ class BlocklikeTraits<BlockContents> {
                                size_t /* read_amp_bytes_per_bit */,
                                Statistics* /* statistics */,
                                bool /* using_zstd */,
-                               const FilterPolicy* /* filter_policy */) {
+                               const FilterPolicy* /* filter_policy */
+                                ) {
     return new BlockContents(std::move(contents));
   }
 
@@ -94,7 +95,8 @@ class BlocklikeTraits<Block> {
   static Block* Create(BlockContents&& contents, SequenceNumber global_seqno,
                        size_t read_amp_bytes_per_bit, Statistics* statistics,
                        bool /* using_zstd */,
-                       const FilterPolicy* /* filter_policy */) {
+                       const FilterPolicy* /* filter_policy */
+                       ) {
     return new Block(std::move(contents), global_seqno, read_amp_bytes_per_bit,
                      statistics);
   }
@@ -130,7 +132,8 @@ class BlocklikeTraits<UncompressionDict> {
                                    size_t /* read_amp_bytes_per_bit */,
                                    Statistics* /* statistics */,
                                    bool using_zstd,
-                                   const FilterPolicy* /* filter_policy */) {
+                                   const FilterPolicy* /* filter_policy */
+                                   ) {
     return new UncompressionDict(contents.data, std::move(contents.allocation),
                                  using_zstd);
   }

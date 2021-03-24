@@ -309,7 +309,7 @@ class ParsedFullFilterBlock {
     : block_contents_(std::move(contents)),
       filter_bits_reader_(
           !block_contents_.data.empty()
-              ? filter_policy->GetFilterBitsReader(block_contents_.data,false)
+              ? filter_policy->GetFilterBitsReader(block_contents_.data,true)
               : nullptr) {}
   ~ParsedFullFilterBlock() = default;;
 

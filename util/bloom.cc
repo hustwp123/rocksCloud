@@ -473,7 +473,7 @@ class OtLexPdtBloomBitsReader : public FilterBitsReader {
 
     uint64_t *p3 = (uint64_t *) (buf + 4 + size1 * 2 + 4 + size2 * 2 + 4 + size3 + 4 + size4 + 4 + size5 * 8);
     num = *p3;
-    //fprintf(stderr, "DEBUG m72qa4 RecoverFromCharArray num: %lu\n", num);
+    // fprintf(stderr, "DEBUG m72qa4 RecoverFromCharArray num: %lu\n", num);
 
     //xp, be compatible with full filter
     char* pc1 = (char*) (buf + 4 + size1 * 2 + 4 + size2 * 2 + 4 + size3 + 4 + size4 + 4 + size5 * 8 + 8);

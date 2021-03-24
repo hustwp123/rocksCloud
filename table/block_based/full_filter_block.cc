@@ -126,7 +126,7 @@ Slice FullFilterBlockBuilder::Finish(const BlockHandle& /*tmp*/,
 
 //xp
 OtLexPdtFilterBlockReader::OtLexPdtFilterBlockReader(const BlockBasedTable* t,
-    CachableEntry<BlockContents>&& filter_block)
+    CachableEntry<ParsedFullFilterBlock>&& filter_block)
     : FilterBlockReaderCommon(t, std::move(filter_block)) {
   const SliceTransform* const prefix_extractor = table_prefix_extractor();
   if (prefix_extractor) {
@@ -158,7 +158,7 @@ std::unique_ptr<FilterBlockReader> OtLexPdtFilterBlockReader::Create(
   assert(table->get_rep());
   assert(!pin || prefetch);
 
-  CachableEntry<BlockContents> filter_block;
+  CachableEntry<ParsedFullFilterBlock> filter_block;
   if (prefetch || !use_cache) {
 //    fprintf(stderr, "DEBUG 9d533h in OtLexPdtFiltBlockReader::Create()\n");
     const Status s = ReadFilterBlock(table, prefetch_buffer, ReadOptions(),
@@ -192,7 +192,7 @@ bool OtLexPdtFilterBlockReader::PrefixMayMatch(
 bool OtLexPdtFilterBlockReader::MayMatch(
     const Slice& entry, bool no_io, GetContext* get_context,
     BlockCacheLookupContext* lookup_context) const {
-  CachableEntry<BlockContents> filter_block;
+  CachableEntry<ParsedFullFilterBlock> filter_block;
 //  fprintf(stdout, "DEBUG f95yhc otBlockReader::MayMatch \n");
 
   const Status s =
@@ -203,14 +203,14 @@ bool OtLexPdtFilterBlockReader::MayMatch(
 
   assert(filter_block.GetValue());
 
-//  FilterBitsReader* const filter_bits_reader =
-//        filter_block.GetValue()->filter_bits_reader();
+ FilterBitsReader* const filter_bits_reader =
+       filter_block.GetValue()->filter_bits_reader();
 
 
   //wp
-  std::unique_ptr<FilterBitsReader> filter_bits_reader(
-        table()->get_rep()->filter_policy->GetFilterBitsReader(
-            filter_block.GetValue()->data,true));
+  // std::unique_ptr<FilterBitsReader> filter_bits_reader(
+  //       table()->get_rep()->filter_policy->GetFilterBitsReader(
+  //           filter_block.GetValue()->data,true));
 
   if (filter_bits_reader) {
 //    fprintf(stderr, "DEBUG b9qicb filter_bits_reader is NOT nullptr\n");
@@ -257,7 +257,7 @@ void OtLexPdtFilterBlockReader::KeysMayMatch(
 void OtLexPdtFilterBlockReader::MayMatch(
     MultiGetRange* range, bool no_io, const SliceTransform* prefix_extractor,
     BlockCacheLookupContext* lookup_context) const {
-  CachableEntry<BlockContents> filter_block;
+  CachableEntry<ParsedFullFilterBlock> filter_block;
 
   const Status s = GetOrReadFilterBlock(no_io, range->begin()->get_context,
                                         lookup_context, &filter_block);
@@ -267,13 +267,13 @@ void OtLexPdtFilterBlockReader::MayMatch(
 
   assert(filter_block.GetValue());
 
-  // FilterBitsReader* const filter_bits_reader =
-  //     filter_block.GetValue()->filter_bits_reader();
+  FilterBitsReader* const filter_bits_reader =
+      filter_block.GetValue()->filter_bits_reader();
 
   //wp
-  std::unique_ptr<FilterBitsReader> filter_bits_reader(
-      table()->get_rep()->filter_policy->GetFilterBitsReader(
-          filter_block.GetValue()->data,true));
+  // std::unique_ptr<FilterBitsReader> filter_bits_reader(
+  //     table()->get_rep()->filter_policy->GetFilterBitsReader(
+  //         filter_block.GetValue()->data,true));
   // FilterBitsReader* const filter_bits_reader =
   //     filter_block.GetValue()->filter_bits_reader(true);
 

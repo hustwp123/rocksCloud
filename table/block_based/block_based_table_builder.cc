@@ -108,6 +108,7 @@ FilterBlockBuilder* CreateFilterBlockBuilder(
       }
       else
       {
+        // fprintf(stderr,"FullFilterBlockBuilder\n");
         return new FullFilterBlockBuilder(mopt.prefix_extractor.get(),
                                         table_opt.whole_key_filtering,
                                         filter_bits_builder);
