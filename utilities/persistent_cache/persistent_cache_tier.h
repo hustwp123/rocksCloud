@@ -255,11 +255,11 @@ class PersistentCacheTier : public PersistentCache {
 
   // Insert to page cache
   virtual Status Insert(const Slice& page_key, const char* data,
-                        const size_t size, bool is_meta_block=false) override = 0;
+                        const size_t size, bool is_meta_block=false,std::string fanme = "") override = 0;
 
   // Lookup page cache by page identifier
   virtual Status Lookup(const Slice& page_key, std::unique_ptr<char[]>* data,
-                        size_t* size) override = 0;
+                        size_t* size,std::string fanme = "") override = 0;
 
   // Does it store compressed data ?
   virtual bool IsCompressed() override = 0;
@@ -300,9 +300,9 @@ class PersistentTieredCache : public PersistentCacheTier {
   std::string PrintStats() override;
   PersistentCache::StatsType Stats() override;
   Status Insert(const Slice& page_key, const char* data,
-                const size_t size, bool is_meta_block=false) override;
+                const size_t size, bool is_meta_block=false,std::string fanme = "") override;
   Status Lookup(const Slice& page_key, std::unique_ptr<char[]>* data,
-                size_t* size) override;
+                size_t* size,std::string fanme = "") override;
   bool IsCompressed() override;
 
   std::string GetPrintableOptions() const override {

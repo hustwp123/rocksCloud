@@ -51,10 +51,10 @@ class VolatileCacheTier : public PersistentCacheTier {
 
   // insert to cache
   Status Insert(const Slice& page_key, const char* data,
-                const size_t size,bool is_meta_block=false) override;
+                const size_t size,bool is_meta_block=false, std::string fname="") override;
   // lookup key in cache
   Status Lookup(const Slice& page_key, std::unique_ptr<char[]>* data,
-                size_t* size) override;
+                size_t* size, std::string fname="") override;
 
   // is compressed cache ?
   bool IsCompressed() override { return is_compressed_; }

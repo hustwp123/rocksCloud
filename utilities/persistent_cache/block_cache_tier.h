@@ -19,6 +19,11 @@
 #include <string>
 #include <thread>
 
+#include <unordered_map>
+#include <vector>
+#include <unistd.h>
+#include <fcntl.h>
+
 #include "rocksdb/cache.h"
 #include "rocksdb/comparator.h"
 #include "rocksdb/persistent_cache.h"
@@ -63,9 +68,10 @@ class BlockCacheTier : public PersistentCacheTier {
     assert(!insert_th_.joinable());
   }
 
-  Status Insert(const Slice& key, const char* data, const size_t size, bool is_meta_block=false) override;
+  Status Insert(const Slice& key, const char* data, const size_t size, 
+  bool is_meta_block=false,std::string fanme = "") override;
   Status Lookup(const Slice& key, std::unique_ptr<char[]>* data,
-                size_t* size) override;
+                size_t* size,std::string fanme = "") override;
   Status Open() override;
   Status Close() override;
   bool Erase(const Slice& key) override;
@@ -167,6 +173,185 @@ class BlockCacheTier : public PersistentCacheTier {
   ThreadedWriter table_writer_;
   BlockCacheTierMetadata table_metadata_;
   std::atomic<uint64_t> table_size_{0};
+};
+
+
+//wp
+
+
+#define SST_SIZE (8 * 1024*1024)  //单个SST所占空间 800KB
+#define SPACE_SIZE (4 * 1024)  //单个空间大小     4KB
+
+struct Record  // KV记录结构
+{
+  std::vector<int> offset;
+  size_t size;
+};
+struct DLinkedNode  //双向链表节点
+{
+  std::string key;
+  Record value;
+  DLinkedNode* prev;
+  DLinkedNode* next;
+  DLinkedNode() : prev(nullptr), next(nullptr) {}
+};
+
+class SST_space  // cache 管理单个SST所占空间
+{
+ public:
+  SST_space(){};
+  void Set_Par(int fd_, uint32_t num, uint32_t begin_) {
+    fd = fd_;
+    begin = begin_;
+    all_num = num;
+    empty_num = num;
+    bit_map.resize(num);
+    bit_map.assign(num, 0);
+    head = new DLinkedNode();
+    tail = new DLinkedNode();
+    head->next = tail;
+    tail->prev = head;
+  }
+  SST_space(int fd_, int num, int begin_)
+      : fd(fd_), begin(begin_), all_num(num), empty_num(num)
+      {
+    bit_map.resize(num);
+    bit_map.assign(num, 0);
+    head = new DLinkedNode();
+    tail = new DLinkedNode();
+    head->next = tail;
+    tail->prev = head;
+  }
+
+  Status Get(const std::string key, std::unique_ptr<char[]>* data,
+             size_t* size);
+
+  void Put(const std::string &key, const std::string &value,uint64_t&,int);
+
+
+ private:
+  void removeRecord(Record* record) {
+    int free_num = record->offset.size();
+    for (uint32_t i = 0; i < record->offset.size(); i++) {
+      int index = record->offset[i] / SPACE_SIZE;
+      bit_map[index] = 0;
+    }
+    record->offset.clear();
+    empty_num += free_num;
+    //fprintf(stderr,"in removeRecord empty_num=%d\n",empty_num);
+  }
+  void addToHead(DLinkedNode* node) {
+    node->prev = head;
+    node->next = head->next;
+    head->next->prev = node;
+    head->next = node;
+  }
+
+  void removeNode(DLinkedNode* node) {
+    node->prev->next = node->next;
+    node->next->prev = node->prev;
+  }
+
+  void moveToHead(DLinkedNode* node) {
+    removeNode(node);
+    addToHead(node);
+  }
+  DLinkedNode* removeTail() {
+    DLinkedNode* node = tail->prev;
+    removeNode(node);
+    return node;
+  }
+
+ public:
+  port::Mutex lock;
+  int fd=-1;
+  uint32_t begin;             //指向该SST空间起始位置
+  std::vector<bool> bit_map;  // bitmap暂时用bool数组代替
+  uint32_t all_num;           //总空间数
+  uint32_t empty_num;         //空空间数
+  std::unordered_map<std::string, DLinkedNode*> cache;
+  DLinkedNode *head, *tail;
+};
+
+class myCache : public PersistentCacheTier {
+ public:
+  explicit myCache(const PersistentCacheConfig& opt) : opt_(opt) {}
+  virtual ~myCache(){
+      Close();
+  }
+
+ private:
+  // Pipelined operation
+  struct myInsertOp {
+    explicit myInsertOp(const bool signal) :signal_(signal) {}
+    explicit myInsertOp(std::string&& key, const std::string& value, 
+                        const std::string& fname)
+        : key_(std::move(key)), value_(value), fname_(fname) {}
+    ~myInsertOp() {}
+
+    myInsertOp() = delete;
+    myInsertOp(myInsertOp&& /*rhs*/) = default;
+    myInsertOp& operator=(myInsertOp&& rhs) = default;
+
+    // used for estimating size by bounded queue
+    size_t Size() { return value_.size() + key_.size(); }
+
+
+    std::string key_;
+    std::string value_;
+    std::string fname_;
+    bool signal_ = false;  // signal to request processing thread to exit
+  };
+
+  int getIndex(
+      std::string fname,bool stat=false);  // filename 格式一般为 /.../0000123.sst
+                          // 此处使用sst序号作为index，若非该格式 则放入最后
+
+
+ public:
+  void InsertMain();
+  Status Insert(const Slice& key, const char* data, const size_t size,bool is_meta_block=false,
+                std::string fanme = "") override;
+
+  Status Lookup(const Slice& key, std::unique_ptr<char[]>* data, size_t* size,
+                std::string fanme = "") override;
+
+  Status InsertImpl(const std::string& key, const std::string& value,
+                        std::string& fname); 
+
+
+  Status Open() override;
+  Status Close() override;
+  bool Erase(const Slice& key) override;
+  bool Reserve(const size_t size,bool) override;
+
+  bool IsCompressed() override;
+
+  std::string GetPrintableOptions() const override;
+
+  // PersistentCache::StatsType Stats() override;
+ private:
+  BoundedQueue<myInsertOp> insert_ops_;  // Ops waiting for insert
+  rocksdb::port::Thread insert_th_;      // Insert thread
+  //port::Mutex lock_;                   // Synchronization
+
+  int fd=-1;
+  int NUM;
+
+  const PersistentCacheConfig opt_;  // BlockCache options
+
+  //std::vector<SST_space> v;
+  SST_space v[130];
+
+
+
+
+  uint64_t outnum=0;
+  uint64_t outall=0;
+  FILE* fp,*fp2;
+  uint64_t allnum=0;
+  uint64_t smallnum=0;
+  uint64_t bignum=0;
 };
 
 }  // namespace rocksdb
