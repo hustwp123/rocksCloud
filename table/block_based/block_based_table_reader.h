@@ -408,7 +408,7 @@ class BlockBasedTable : public TableReader {
                        std::unique_ptr<InternalIterator>* iter);
   Status TryReadPropertiesWithGlobalSeqno(FilePrefetchBuffer* prefetch_buffer,
                                           const Slice& handle_value,
-                                          TableProperties** table_properties);
+                                          TableProperties** table_properties,int level);
   Status ReadPropertiesBlock(FilePrefetchBuffer* prefetch_buffer,
                              InternalIterator* meta_iter,
                              const SequenceNumber largest_seqno);

@@ -198,7 +198,7 @@ Status ReadProperties(const Slice& handle_value, RandomAccessFileReader* file,
                       BlockHandle* ret_block_handle,
                       CacheAllocationPtr* verification_buf,
                       bool /*compression_type_missing*/,
-                      MemoryAllocator* memory_allocator) {
+                      MemoryAllocator* memory_allocator,int level) {
   assert(table_properties);
 
   Slice v = handle_value;
@@ -218,7 +218,7 @@ Status ReadProperties(const Slice& handle_value, RandomAccessFileReader* file,
       ioptions, false /* decompress */, false /*maybe_compressed*/,
       BlockType::kProperties, UncompressionDict::GetEmptyDict(), cache_options,
       memory_allocator);
-  s = block_fetcher.ReadBlockContents();
+  s = block_fetcher.ReadBlockContents(level);
   // property block is never compressed. Need to add uncompress logic if we are
   // to compress it..
 

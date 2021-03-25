@@ -106,7 +106,7 @@ Status ReadProperties(const Slice& handle_value, RandomAccessFileReader* file,
                       BlockHandle* block_handle,
                       CacheAllocationPtr* verification_buf,
                       bool compression_type_missing = false,
-                      MemoryAllocator* memory_allocator = nullptr);
+                      MemoryAllocator* memory_allocator = nullptr,int level=0);
 
 // Directly read the properties from the properties block of a plain table.
 // @returns a status to indicate if the operation succeeded. On success,

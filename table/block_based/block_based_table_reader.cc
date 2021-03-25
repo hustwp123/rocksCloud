@@ -159,7 +159,7 @@ Status ReadBlockFromFile(
     const UncompressionDict& uncompression_dict,
     const PersistentCacheOptions& cache_options, SequenceNumber global_seqno,
     size_t read_amp_bytes_per_bit, MemoryAllocator* memory_allocator,
-    bool for_compaction, bool using_zstd,const FilterPolicy* filter_policy,bool is_meta_block=false) {
+    bool for_compaction, bool using_zstd,const FilterPolicy* filter_policy,int level,bool is_meta_block=false) {
   assert(result);
 
   BlockContents contents;
@@ -167,7 +167,7 @@ Status ReadBlockFromFile(
       file, prefetch_buffer, footer, options, handle, &contents, ioptions,
       do_uncompress, maybe_compressed, block_type, uncompression_dict,
       cache_options, memory_allocator, nullptr, for_compaction);
-  Status s = block_fetcher.ReadBlockContents(is_meta_block);
+  Status s = block_fetcher.ReadBlockContents(level,is_meta_block);
   if (s.ok()) {
     result->reset(BlocklikeTraits<TBlocklike>::Create(
         std::move(contents), global_seqno, read_amp_bytes_per_bit,
@@ -700,7 +700,7 @@ class HashIndexReader : public BlockBasedTable::IndexReaderCommon {
         &prefixes_contents, ioptions, true /*decompress*/,
         true /*maybe_compressed*/, BlockType::kHashIndexPrefixes,
         UncompressionDict::GetEmptyDict(), cache_options, memory_allocator);
-    s = prefixes_block_fetcher.ReadBlockContents();
+    s = prefixes_block_fetcher.ReadBlockContents(rep->level);
     if (!s.ok()) {
       return s;
     }
@@ -710,7 +710,7 @@ class HashIndexReader : public BlockBasedTable::IndexReaderCommon {
         &prefixes_meta_contents, ioptions, true /*decompress*/,
         true /*maybe_compressed*/, BlockType::kHashIndexMetadata,
         UncompressionDict::GetEmptyDict(), cache_options, memory_allocator);
-    s = prefixes_meta_block_fetcher.ReadBlockContents();
+    s = prefixes_meta_block_fetcher.ReadBlockContents(rep->level);
     if (!s.ok()) {
       // TODO: log error
       return Status::OK();
@@ -1309,7 +1309,7 @@ Status VerifyChecksum(const ChecksumType type, const char* buf, size_t len,
 
 Status BlockBasedTable::TryReadPropertiesWithGlobalSeqno(
     FilePrefetchBuffer* prefetch_buffer, const Slice& handle_value,
-    TableProperties** table_properties) {
+    TableProperties** table_properties,int level) {
   assert(table_properties != nullptr);
   // If this is an external SST file ingested with write_global_seqno set to
   // true, then we expect the checksum mismatch because checksum was written
@@ -1323,7 +1323,7 @@ Status BlockBasedTable::TryReadPropertiesWithGlobalSeqno(
                             rep_->footer, rep_->ioptions, table_properties,
                             false /* verify_checksum */, &props_block_handle,
                             &tmp_buf, false /* compression_type_missing */,
-                            nullptr /* memory_allocator */);
+                            nullptr /* memory_allocator */,level);
   if (s.ok() && tmp_buf) {
     const auto seqno_pos_iter =
         (*table_properties)
@@ -1361,12 +1361,12 @@ Status BlockBasedTable::ReadPropertiesBlock(
           meta_iter->value(), rep_->file.get(), prefetch_buffer, rep_->footer,
           rep_->ioptions, &table_properties, true /* verify_checksum */,
           nullptr /* ret_block_handle */, nullptr /* ret_block_contents */,
-          false /* compression_type_missing */, nullptr /* memory_allocator */);
+          false /* compression_type_missing */, nullptr /* memory_allocator */,rep_->level);
     }
 
     if (s.IsCorruption()) {
       s = TryReadPropertiesWithGlobalSeqno(prefetch_buffer, meta_iter->value(),
-                                           &table_properties);
+                                           &table_properties,rep_->level);
     }
     std::unique_ptr<TableProperties> props_guard;
     if (table_properties != nullptr) {
@@ -1651,7 +1651,7 @@ Status BlockBasedTable::ReadMetaBlock(FilePrefetchBuffer* prefetch_buffer,
       UncompressionDict::GetEmptyDict(), rep_->persistent_cache_options,
       kDisableGlobalSequenceNumber, 0 /* read_amp_bytes_per_bit */,
       GetMemoryAllocator(rep_->table_options), false /* for_compaction */,
-      rep_->blocks_definitely_zstd_compressed,nullptr);
+      rep_->blocks_definitely_zstd_compressed,nullptr,rep_->level);
 
   if (!s.ok()) {
     ROCKS_LOG_ERROR(rep_->ioptions.info_log,
@@ -2208,7 +2208,7 @@ Status BlockBasedTable::MaybeReadBlockAndLoadToCache(
             rep_->persistent_cache_options,
             GetMemoryAllocator(rep_->table_options),
             GetMemoryAllocatorForCompressedBlock(rep_->table_options));
-        s = block_fetcher.ReadBlockContents(is_meta_block);
+        s = block_fetcher.ReadBlockContents(rep_->level,is_meta_block);
         raw_block_comp_type = block_fetcher.get_compression_type();
         contents = &raw_block_contents;
       } else {
@@ -2512,7 +2512,7 @@ Status BlockBasedTable::RetrieveBlock(
             : 0,
         GetMemoryAllocator(rep_->table_options), for_compaction,
         rep_->blocks_definitely_zstd_compressed,
-        rep_->table_options.filter_policy.get());
+        rep_->table_options.filter_policy.get(),rep_->level);
   }
 
   if (!s.ok()) {
@@ -3815,7 +3815,7 @@ Status BlockBasedTable::VerifyChecksumInBlocks(
         ReadOptions(), handle, &contents, rep_->ioptions,
         false /* decompress */, false /*maybe_compressed*/, BlockType::kData,
         UncompressionDict::GetEmptyDict(), rep_->persistent_cache_options);
-    s = block_fetcher.ReadBlockContents();
+    s = block_fetcher.ReadBlockContents(rep_->level);
     if (!s.ok()) {
       break;
     }
@@ -3875,12 +3875,12 @@ Status BlockBasedTable::VerifyChecksumInMetaBlocks(
         false /* decompress */, false /*maybe_compressed*/,
         GetBlockTypeForMetaBlockByName(meta_block_name),
         UncompressionDict::GetEmptyDict(), rep_->persistent_cache_options);
-    s = block_fetcher.ReadBlockContents();
+    s = block_fetcher.ReadBlockContents(rep_->level);
     if (s.IsCorruption() && meta_block_name == kPropertiesBlock) {
       TableProperties* table_properties;
       s = TryReadPropertiesWithGlobalSeqno(nullptr /* prefetch_buffer */,
                                            index_iter->value(),
-                                           &table_properties);
+                                           &table_properties,rep_->level);
       delete table_properties;
     }
     if (!s.ok()) {
