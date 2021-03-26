@@ -220,26 +220,13 @@ class SST_space  // cache 管理单个SST所占空间
     head->next = tail;
     tail->prev = head;
   }
-  virtual ~SST_space() {
-    // DLinkedNode* temp=head->next;
-    // DLinkedNode* t;
-    // while(temp!=tail)
-    // {
-    //   t=temp;
-    //   temp=t->next;
-    //   delete t;
-    // }
-    // delete head;
-    // delete tail;
-  }
 
-  std::string Get(std::string key);
+
   Status Get(const std::string key, std::unique_ptr<char[]>* data,
              size_t* size);
 
-  void Put(const std::string &key, const std::string &value,uint64_t&,int);
+  void Put(const std::string &key, const std::string &value,uint64_t& out,int);
 
-  Status Put(const std::string key, const char* data, const size_t size);
 
  private:
   void removeRecord(Record* record) {
@@ -324,13 +311,11 @@ class myCache : public PersistentCacheTier {
   void InsertMain();
   Status Insert(const Slice& key, const char* data, const size_t size,bool is_meta_block=false,
                 std::string fanme = "") override;
-  Status InsertImpl(const Slice& key, const char* data, const size_t size,
-                std::string fanme = "");
 
   Status Lookup(const Slice& key, std::unique_ptr<char[]>* data, size_t* size,
                 std::string fanme = "") override;
 
-  Status Insert2(const std::string& key, const std::string& value,
+  Status InsertImpl(const std::string& key, const std::string& value,
                         std::string &fname) ;
 
 

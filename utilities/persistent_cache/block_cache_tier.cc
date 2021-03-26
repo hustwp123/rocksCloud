@@ -617,110 +617,7 @@ Status SST_space::Get(const std::string key, std::unique_ptr<char[]>* data,
   }
   return Status::OK();
 }
-std::string SST_space::Get(std::string key) {
-  MutexLock _(&lock);
-  if (!cache.count(key)) {
-    return "";
-  }
-  DLinkedNode* node = cache[key];
-  moveToHead(node);
-  char* s = new char[node->value.size + 1];
-  size_t cur = 0;
-  for (uint32_t i = 0; i < (node->value.offset.size() - 1); i++) {
-    ssize_t t = pread(fd, s + cur, SPACE_SIZE, begin + node->value.offset[i]);
-    if (t < 0) {
-      return "";
-    }
 
-    cur += SPACE_SIZE;
-  }
-  int left_size = node->value.size % SPACE_SIZE == 0
-                      ? SPACE_SIZE
-                      : node->value.size % SPACE_SIZE;
-  int index = node->value.offset.size() - 1;
-  ssize_t t = pread(fd, s + cur, left_size, begin + node->value.offset[index]);
-  if (t < 0) {
-    return "";
-  }
-  s[node->value.size] = '\0';
-  std::string re = std::string(s, node->value.size);
-  delete[] s;
-  return re;
-}
-
-Status SST_space::Put(const std::string key, const char* data,
-                      const size_t size) {
-  MutexLock _(&lock);
-  if (size == 0) {
-    return Status::OK();
-  }
-  uint32_t need_num = size / SPACE_SIZE;
-  need_num += size % SPACE_SIZE == 0 ? 0 : 1;
-  if (need_num > all_num) {
-    return Status::OK();
-  }
-
-  DLinkedNode* node;
-  if (!cache.count(key))  // key不存在 创建新节点
-  {
-    node = new DLinkedNode();
-    node->key = key;
-    node->value.offset.clear();
-    cache[key] = node;
-    addToHead(node);
-    while (need_num > empty_num) {
-      DLinkedNode* removed = removeTail();
-      cache.erase(removed->key);
-      removeRecord(&(removed->value));
-      delete removed;
-    }
-  } else {
-    node = cache[key];
-    moveToHead(node);
-    removeRecord(&(node->value));
-    while (need_num > empty_num) {
-      DLinkedNode* removed = removeTail();
-      cache.erase(removed->key);
-      removeRecord(&(removed->value));
-      delete removed;
-    }
-  }
-  //取块
-  uint32_t num = 0, j = 0;
-  while (j < bit_map.size()) {
-    if (!bit_map[j]) {
-      bit_map[j] = 1;
-      node->value.offset.push_back(j * SPACE_SIZE);
-      num++;
-      if (num == need_num) {
-        break;
-      }
-    }
-    j++;
-  }
-  //写块
-  size_t cur = 0;
-  for (uint32_t i = 0; i < node->value.offset.size() - 1; i++) {
-    ssize_t t =
-        pwrite(fd, data + cur, SPACE_SIZE, begin + node->value.offset[i]);
-    if (t < 0) {
-      return Status::IOError();
-    }
-    cur += SPACE_SIZE;
-  }
-  node->value.size = size;
-  size_t left_size = size % SPACE_SIZE == 0 ? SPACE_SIZE : size % SPACE_SIZE;
-  int index = node->value.offset.size() - 1;
-
-  ssize_t t =
-      pwrite(fd, data + cur, left_size, begin + node->value.offset[index]);
-  if (t < 0) {
-    return Status::IOError();
-  }
-
-  empty_num -= need_num;
-  return Status::OK();
-}
 void SST_space::Put(const std::string& key, const std::string& value,
                     uint64_t& out,int ) {
   MutexLock _(&lock);
@@ -794,14 +691,6 @@ void SST_space::Put(const std::string& key, const std::string& value,
   empty_num -= need_num;
   
 }
-Status myCache::InsertImpl(const Slice& key, const char* data,
-                           const size_t size, std::string fname) {
-  // MutexLock _(&lock_);
-  std::string skey(key.data(), key.size());
-  int index = getIndex(fname);
-  Status s = v[index].Put(skey, data, size);
-  return s;
-}
 
 Status myCache::Insert(const Slice& key, const char* data, const size_t size,bool,
                        std::string fname) {
@@ -812,7 +701,7 @@ Status myCache::Insert(const Slice& key, const char* data, const size_t size,boo
         key.ToString(), std::move(std::string(data, size)), std::move(fname)));
     return Status::OK();
   }
-  Insert2(std::string(key.data(), key.size()), std::string(data, size), fname);
+  InsertImpl(std::string(key.data(), key.size()), std::string(data, size), fname);
   return Status::OK();
 }
 void myCache::InsertMain() {
@@ -823,7 +712,7 @@ void myCache::InsertMain() {
       // that is a secret signal to exit
       break;
     }
-    Insert2(op.key_, op.value_, op.fname_);
+    InsertImpl(op.key_, op.value_, op.fname_);
   }
 }
 
@@ -837,7 +726,7 @@ Status myCache::Lookup(const Slice& key, std::unique_ptr<char[]>* data,
   return s;
 }
 
-Status myCache::Insert2(const std::string& key, const std::string& value,
+Status myCache::InsertImpl(const std::string& key, const std::string& value,
                         std::string& fname) {
   // MutexLock _(&lock_);
   int index = getIndex(fname, true);
@@ -914,8 +803,8 @@ Status myCache::Close() {
     all_empty_num+=v[i].empty_num;
   }
 
-  fprintf(stderr,"/n/n\n all_empty_num=%ld \n",all_empty_num);
-  fprintf(stderr, "/n/n\n outall=%ld\n", outall);
+  //fprintf(stderr,"/n/n\n all_empty_num=%ld \n",all_empty_num);
+  //fprintf(stderr, "/n/n\n outall=%ld\n", outall);
   return Status::OK();
 }
 bool myCache::Erase(const Slice& ) {
