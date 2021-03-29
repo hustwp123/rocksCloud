@@ -1651,7 +1651,7 @@ Status BlockBasedTable::ReadMetaBlock(FilePrefetchBuffer* prefetch_buffer,
       UncompressionDict::GetEmptyDict(), rep_->persistent_cache_options,
       kDisableGlobalSequenceNumber, 0 /* read_amp_bytes_per_bit */,
       GetMemoryAllocator(rep_->table_options), false /* for_compaction */,
-      rep_->blocks_definitely_zstd_compressed,nullptr,rep_->level);
+      rep_->blocks_definitely_zstd_compressed,nullptr,rep_->level,true);
 
   if (!s.ok()) {
     ROCKS_LOG_ERROR(rep_->ioptions.info_log,
@@ -2512,7 +2512,7 @@ Status BlockBasedTable::RetrieveBlock(
             : 0,
         GetMemoryAllocator(rep_->table_options), for_compaction,
         rep_->blocks_definitely_zstd_compressed,
-        rep_->table_options.filter_policy.get(),rep_->level);
+        rep_->table_options.filter_policy.get(),rep_->level,is_meta_block);
   }
 
   if (!s.ok()) {

@@ -712,6 +712,10 @@ Status myCache::Insert(const Slice& key, const char* data, const size_t size,boo
                        std::string fname) {
   // Insert2(std::string(key.data(), key.size()), std::string(data, size), fname);
   // return Status::OK();
+  // if(is_meta)
+  // {
+  //   fprintf(stderr,"insert size=%ld\n",size);
+  // }
   if (opt_.pipeline_writes) {
     insert_ops_.Push(myInsertOp(
         key.ToString(), std::move(std::string(data, size)),is_meta, std::move(fname)));
