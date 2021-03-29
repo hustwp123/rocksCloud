@@ -190,6 +190,7 @@ struct Record  // KV记录结构
 struct DLinkedNode  //双向链表节点
 {
   std::string key;
+  int out=0; //is_meta 设置为1 淘汰时out-1 out=0时才会被淘汰
   Record value;
   DLinkedNode* prev;
   DLinkedNode* next;
@@ -226,7 +227,7 @@ class SST_space  // cache 管理单个SST所占空间
   Status Get(const std::string key, std::unique_ptr<char[]>* data,
              size_t* size);
 
-  void Put(const std::string &key, const std::string &value,uint64_t&,int);
+  void Put(const std::string &key, const std::string &value,uint64_t&,bool is_meta);
 
 
  private:
@@ -261,6 +262,10 @@ class SST_space  // cache 管理单个SST所占空间
     removeNode(node);
     return node;
   }
+  DLinkedNode* getTail() {
+    DLinkedNode* node = tail->prev;
+    return node;
+  }
 
  public:
   port::Mutex lock;
@@ -284,9 +289,9 @@ class myCache : public PersistentCacheTier {
   // Pipelined operation
   struct myInsertOp {
     explicit myInsertOp(const bool signal) :signal_(signal) {}
-    explicit myInsertOp(std::string&& key, const std::string& value, 
+    explicit myInsertOp(std::string&& key, const std::string& value,bool is_meta_, 
                         const std::string& fname)
-        : key_(std::move(key)), value_(value), fname_(fname) {}
+        : key_(std::move(key)), value_(value),is_meta(is_meta_), fname_(fname) {}
     ~myInsertOp() {}
 
     myInsertOp() = delete;
@@ -299,7 +304,9 @@ class myCache : public PersistentCacheTier {
 
     std::string key_;
     std::string value_;
+    bool is_meta;
     std::string fname_;
+    
     bool signal_ = false;  // signal to request processing thread to exit
   };
 
@@ -316,7 +323,7 @@ class myCache : public PersistentCacheTier {
   Status Lookup(const Slice& key, std::unique_ptr<char[]>* data, size_t* size,
                 std::string fanme = "") override;
 
-  Status InsertImpl(const std::string& key, const std::string& value,
+  Status InsertImpl(const std::string& key, const std::string& value,bool is_meta,
                         std::string& fname); 
 
 

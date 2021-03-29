@@ -619,7 +619,7 @@ Status SST_space::Get(const std::string key, std::unique_ptr<char[]>* data,
 
 
 void SST_space::Put(const std::string& key, const std::string& value,
-                    uint64_t& out,int ) {
+                    uint64_t& out,bool is_meta ) {
   MutexLock _(&lock);
   if (value.size() == 0) {
     return;
@@ -635,9 +635,17 @@ void SST_space::Put(const std::string& key, const std::string& value,
     node = new DLinkedNode();
     node->key = key;
     node->value.offset.clear();
+    node->out=is_meta?1:0;
     cache[key] = node;
     addToHead(node);
     while (need_num > empty_num) {
+      DLinkedNode* tail_=getTail();
+      if(tail_->out)
+      {
+        tail_->out--;
+        moveToHead(tail_);
+        continue;
+      }
       out++;
       DLinkedNode* removed = removeTail();
       cache.erase(removed->key);
@@ -646,9 +654,17 @@ void SST_space::Put(const std::string& key, const std::string& value,
     }
   } else {
     node = cache[key];
+    node->out=is_meta?1:0;
     moveToHead(node);
     removeRecord(&(node->value));
     while (need_num > empty_num) {
+      DLinkedNode* tail_=getTail();
+      if(tail_->out)
+      {
+        tail_->out--;
+        moveToHead(tail_);
+        continue;
+      }
       out++;
       DLinkedNode* removed = removeTail();
       cache.erase(removed->key);
@@ -692,16 +708,16 @@ void SST_space::Put(const std::string& key, const std::string& value,
 
 }
 
-Status myCache::Insert(const Slice& key, const char* data, const size_t size,bool,
+Status myCache::Insert(const Slice& key, const char* data, const size_t size,bool is_meta,
                        std::string fname) {
   // Insert2(std::string(key.data(), key.size()), std::string(data, size), fname);
   // return Status::OK();
   if (opt_.pipeline_writes) {
     insert_ops_.Push(myInsertOp(
-        key.ToString(), std::move(std::string(data, size)), std::move(fname)));
+        key.ToString(), std::move(std::string(data, size)),is_meta, std::move(fname)));
     return Status::OK();
   }
-  InsertImpl(std::string(key.data(), key.size()), std::string(data, size), fname);
+  InsertImpl(std::string(key.data(), key.size()), std::string(data, size),is_meta, fname);
   return Status::OK();
 }
 void myCache::InsertMain() {
@@ -712,7 +728,7 @@ void myCache::InsertMain() {
       // that is a secret signal to exit
       break;
     }
-    InsertImpl(op.key_, op.value_, op.fname_);
+    InsertImpl(op.key_, op.value_, op.is_meta,op.fname_);
   }
 }
 
@@ -725,11 +741,11 @@ Status myCache::Lookup(const Slice& key, std::unique_ptr<char[]>* data,
   return s;
 }
 
-Status myCache::InsertImpl(const std::string& key, const std::string& value,
+Status myCache::InsertImpl(const std::string& key, const std::string& value,bool is_meta,
                         std::string& fname) {
   // MutexLock _(&lock_);
   int index = getIndex(fname, true);
-  v[index].Put(key, value, outall,index);
+  v[index].Put(key, value, outall,is_meta);
   return Status::OK();
 }
 
