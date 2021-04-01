@@ -327,7 +327,7 @@ ifeq ($(PLATFORM), OS_OPENBSD)
 endif
 
 ifndef DISABLE_WARNING_AS_ERROR
-	WARNING_FLAGS += -Werror
+	WARNING_FLAGS += -Werror -Wno-unused-parameter
 endif
 
 
