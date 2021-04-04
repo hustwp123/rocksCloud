@@ -49,6 +49,17 @@ struct gamma_vector {
     m_low_bits.swap(other.m_low_bits);
   }
 
+  // sbh add 
+  void Encode(std::string *dst) {
+      m_high_bits.Encode(dst);  
+      m_low_bits.Encode(dst);
+  }
+
+  void Decode(const char **src) {
+      m_high_bits.Decode(src);
+      m_low_bits.Decode(src);
+  }
+
   template <typename Visitor>
   void map(Visitor& visit) {
     visit(m_high_bits, "m_high_bits")(m_low_bits, "m_low_bits");

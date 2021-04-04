@@ -66,6 +66,21 @@ class darray {
     m_overflow_positions.swap(other.m_overflow_positions);
   }
 
+  // sbh add
+  void Encode(std::string *dst) {
+      EncodeType(dst, m_positions);
+      m_block_inventory.Encode(dst);
+      m_subblock_inventory.Encode(dst);
+      m_overflow_positions.Encode(dst);
+  }
+
+  void Decode(const char **src) {
+      DecodeType(src, m_positions);
+      m_block_inventory.Decode(src);
+      m_subblock_inventory.Decode(src);
+      m_overflow_positions.Decode(src);
+  }
+
   inline uint64_t select(bit_vector const& bv, uint64_t idx) const {
     assert(idx < num_positions());
     int64_t block = idx / block_size;

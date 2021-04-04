@@ -37,6 +37,21 @@ class bp_vector : public rs_bit_vector {
     m_superblock_excess_min.swap(other.m_superblock_excess_min);
   }
 
+  // sbh add
+  void Encode(std::string *dst) {
+    rs_bit_vector::Encode(dst);
+    EncodeType(dst, m_internal_nodes);
+    m_block_excess_min.Encode(dst);
+    m_superblock_excess_min.Encode(dst);
+  }
+
+  void Decode(const char **src) {
+    rs_bit_vector::Decode(src);
+    DecodeType(src, m_internal_nodes);
+    m_block_excess_min.Decode(src);
+    m_superblock_excess_min.Decode(src);
+  }
+
   uint64_t find_open(uint64_t pos) const;
   uint64_t find_close(uint64_t pos) const;
   uint64_t enclose(uint64_t pos) const {

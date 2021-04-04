@@ -242,6 +242,17 @@ namespace succinct {
             other.m_bits_.swap(m_bits_);
         }
 
+         // sbh add 
+        void Encode(std::string *dst) {
+            EncodeType(dst, m_size_);
+            m_bits_.Encode(dst);
+        }
+
+        void Decode(const char **src) {
+            DecodeType(src, m_size_);
+            m_bits_.Decode(src);
+        }
+
         inline size_t size() const {
             return m_size_;
         }

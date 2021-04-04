@@ -223,6 +223,16 @@ class bit_vector {
     other.m_bits.swap(m_bits);
   }
 
+  // sbh add
+  void Encode(std::string *dst) {
+    EncodeType(dst, m_size);
+    m_bits.Encode(dst);
+  }
+
+  void Decode(const char **src) {
+    DecodeType(src, m_size);
+    m_bits.Decode(src);
+  }
   inline size_t size() const { return m_size; }
 
   inline bool operator[](uint64_t pos) const {

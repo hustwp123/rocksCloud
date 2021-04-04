@@ -89,6 +89,25 @@ class elias_fano {
     std::swap(other.m_l, m_l);
   }
 
+  // sbh add 
+  void Encode(std::string *dst) {
+      EncodeType(dst, m_size);
+      m_high_bits.Encode(dst);
+      m_high_bits_d1.Encode(dst);
+      m_high_bits_d0.Encode(dst);
+      m_low_bits.Encode(dst);
+      EncodeType(dst, m_l);
+  }
+
+  void Decode(const char **src) {
+      DecodeType(src, m_size);
+      m_high_bits.Decode(src);
+      m_high_bits_d1.Decode(src);
+      m_high_bits_d0.Decode(src);
+      m_low_bits.Decode(src);
+      DecodeType(src, m_l);
+  }
+
   inline uint64_t size() const { return m_size; }
 
   inline uint64_t num_ones() const { return m_high_bits_d1.num_positions(); }

@@ -3429,8 +3429,15 @@ class Benchmark {
     printf("Initializing RocksDB Options from command-line flags\n");
     Options& options = *opts;
 
+#define SBH_TEST
+
+#ifndef SBH_TEST
     options.db_paths={{"/home/will/wpdb/db1",10l*1024*1024*1024},
     {"/home/will/wpdb/db2",100l*1024*1024*1024}};
+#else
+    options.db_paths={{"/mnt/OPTANE/sbh/rocksCloud/db1",10l*1024*1024*1024},
+    {"/mnt/OPTANE/sbh/rocksCloud/db2",100l*1024*1024*1024}};
+#endif
     assert(db_.db == nullptr);
 
     options.max_open_files = FLAGS_open_files;

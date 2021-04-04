@@ -49,6 +49,16 @@ struct elias_fano_compressed_list {
     m_ef.swap(other.m_ef);
     m_bits.swap(other.m_bits);
   }
+  // sbh add
+  void Encode(std::string *dst) {
+      m_ef.Encode(dst);
+      m_bits.Encode(dst);
+  }
+
+  void Decode(const char **src) {
+      m_ef.Decode(src);
+      m_bits.Decode(src);
+  }
 
   template <typename Visitor>
   void map(Visitor& visit) {

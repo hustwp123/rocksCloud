@@ -47,6 +47,21 @@ struct darray64 {
     m_subblock_inventory.swap(other.m_subblock_inventory);
   }
 
+  // sbh add
+  void Encode(std::string *dst) {
+      EncodeType(dst, m_num_ones);
+      m_bits.Encode(dst);
+      m_block_inventory.Encode(dst);
+      m_subblock_inventory.Encode(dst);
+  }
+
+  void Decode(const char **src) {
+      DecodeType(src, m_num_ones);
+      m_bits.Decode(src);
+      m_block_inventory.Decode(src);
+      m_subblock_inventory.Decode(src);
+  }
+
   template <typename Visitor>
   void map(Visitor& visit) {
     visit(m_num_ones, "m_num_ones")(m_bits, "m_bits")(

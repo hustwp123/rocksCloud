@@ -138,6 +138,20 @@ struct compressed_string_pool {
     m_positions.swap(other.m_positions);
   }
 
+  void Encode(std::string *dst) {
+      m_dictionary.Encode(dst);
+      m_word_positions.Encode(dst);
+      m_byte_streams.Encode(dst);
+      m_positions.Encode(dst);
+  }
+  
+  void Decode(const char **src) {
+      m_dictionary.Decode(src);
+      m_word_positions.Decode(src);
+      m_byte_streams.Decode(src);
+      m_positions.Encode(src);
+  }
+
   template <typename Visitor>
   void map(Visitor& visit) {
     visit(m_dictionary, "m_dictionary")(m_word_positions, "m_word_positions")(

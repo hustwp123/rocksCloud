@@ -15,6 +15,23 @@
 
 namespace rocksdb {
 namespace succinct {
+
+// sbh add
+template <typename T> 
+static void EncodeType(std::string *dst, T value)
+{
+    char buf[sizeof(T) + 1];
+    memcpy(buf, &value, sizeof(T));
+    dst->append(buf, sizeof(T));
+}
+
+template <typename T> 
+static void DecodeType(const char **src, T &value)
+{
+    memcpy(&value, *src, sizeof(T));
+    *src = (*src) + sizeof(T);
+}
+
 namespace mapper {
 
 namespace detail {
@@ -56,6 +73,31 @@ class mappable_vector : boost::noncopyable {
     swap(m_data, other.m_data);
     swap(m_size, other.m_size);
     swap(m_deleter, other.m_deleter);
+  }
+ 
+  // sbh add
+  void Encode(std::string *dst) {
+    EncodeType(dst, m_size);
+    if(m_size == 0) return;
+
+    char buf[m_size * sizeof(T) + 1];
+    memcpy(buf, m_data, m_size * sizeof(T));
+    dst->append(buf, m_size * sizeof(T));
+    // std::cout << "Encode: (" << m_size << ")" << std::endl;
+  }
+
+  void Decode(const char **src) {
+    DecodeType(src, m_size);
+    if(m_size == 0) return;
+    // std::cout << "Decode: (" << m_size << ")" << std::endl;
+    if(m_data && m_deleter) m_deleter();
+
+    T* data = new T[m_size];
+    m_deleter = boost::lambda::bind(boost::lambda::delete_array(), data);
+    std::copy((T *)(*src), ((T *)(*src)) + m_size, data);
+    m_data = data;
+
+    *src += m_size * sizeof(T);
   }
 
   void clear() { mappable_vector().swap(*this); }

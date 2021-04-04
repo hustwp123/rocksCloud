@@ -101,6 +101,17 @@ struct vbyte_string_pool {
     m_positions.swap(other.m_positions);
   }
 
+  // sbh add 
+  void Encode(std::string *dst) {
+      m_byte_streams.Encode(dst);
+      m_positions.Encode(dst);
+  }
+
+  void Decode(const char **src) {
+      m_byte_streams.Decode(src);
+      m_positions.Decode(src);
+  }
+  
   template <typename Visitor>
   void map(Visitor& visit) {
     visit(m_byte_streams, "m_byte_streams")(m_positions, "m_positions");

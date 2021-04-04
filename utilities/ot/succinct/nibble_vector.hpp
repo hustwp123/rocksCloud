@@ -46,6 +46,17 @@ class nibble_vector {
     other.m_nibbles.swap(m_nibbles);
   }
 
+  // sbh add 
+  void Encode(std::string *dst) {
+      EncodeType(dst, m_size);
+      m_nibbles.Encode(dst);  
+  }
+
+  void Decode(const char **src) {
+      DecodeType(src, m_size);
+      m_nibbles.Decode(src);
+  }
+
   size_t size() const { return m_size; }
 
   uint8_t operator[](uint64_t pos) const {

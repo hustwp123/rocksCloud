@@ -40,6 +40,15 @@ struct elias_fano_list {
 
   void swap(elias_fano_list& other) { m_ef.swap(other.m_ef); }
 
+  // sbh add
+  void Encode(std::string *dst) {
+      m_ef.Encode(dst);
+  }
+
+  void Decode(const char **src) {
+      m_ef.Decode(src);
+  }
+
   template <typename Visitor>
   void map(Visitor& visit) {
     visit(m_ef, "m_ef");

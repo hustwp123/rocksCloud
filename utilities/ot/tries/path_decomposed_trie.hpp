@@ -320,6 +320,19 @@ struct path_decomposed_trie {
     m_branching_chars.swap(other.m_branching_chars);
     m_labels.swap(other.m_labels);
   }
+  
+  // sbh add 
+  void Encode(std::string *dst) {
+      m_bp.Encode(dst);
+      m_branching_chars.Encode(dst);
+      m_labels.Encode(dst);
+  }
+
+  void Decode(const char **src) {
+      m_bp.Decode(src);
+      m_branching_chars.Decode(src);
+      m_labels.Decode(src);
+  }
 
   template <typename Visitor>
   void map(Visitor& visit) {

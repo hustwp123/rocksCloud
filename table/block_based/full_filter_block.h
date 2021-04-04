@@ -78,6 +78,8 @@ class OtLexPdtFilterBlockBuilder : public FilterBlockBuilder {
   // should NOT dereference them.
   uint32_t num_added_;
   std::unique_ptr<const char[]> filter_data_;
+  // sbh modify: replace with string
+  // std::string filter_data_;
   //TODO vector for all boundary keys in this Table
 };
 
