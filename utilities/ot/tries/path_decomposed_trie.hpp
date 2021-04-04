@@ -21,6 +21,8 @@ struct path_decomposed_trie {
   typedef LabelsPoolType labels_pool_type;
   typedef mapper::mappable_vector<uint8_t> branching_chars_type;
 
+  class centroid_builder_visitor;
+
   path_decomposed_trie() {
     BOOST_STATIC_ASSERT(sizeof(typename labels_pool_type::char_type) >=
                         sizeof(label_char_type));
@@ -172,6 +174,18 @@ struct path_decomposed_trie {
 //    fprintf(stderr, "DEBUG ka17da1 restored ot lex pdt byte size: %lu\n", size()/8);
   }
 
+  void instance(centroid_builder_visitor &visitor) {
+      typename centroid_builder_visitor::representation_type root = visitor.get_root();
+      
+      bp_vector(&root->m_bp, false, true).swap(m_bp);
+      branching_chars_type(root->m_branching_chars).swap(m_branching_chars);
+      labels_pool_type(root->m_labels).swap(m_labels);
+      assert(m_labels.size() == m_bp.size() / 2);   
+  }
+
+  void finish_essentia(centroid_builder_visitor &visitor) {
+    instance_essentia(visitor);
+  }
 
   template <typename T, typename Adaptor>
   size_t index(T const& val, Adaptor adaptor) const {
@@ -368,7 +382,7 @@ struct path_decomposed_trie {
  private:
   typedef uint16_t label_char_type;
   static const size_t branching_point = 256;
-
+ public:
   struct centroid_builder_visitor {
     centroid_builder_visitor() {}
 
@@ -483,7 +497,7 @@ struct path_decomposed_trie {
    private:
     representation_type m_root_node;
   };
-
+ private:
   //xp to delete
   void instance2() {
     bp_vector(&pub_m_bp, false, true).swap(m_bp);
@@ -544,6 +558,22 @@ struct path_decomposed_trie {
 //    std::cout << "DEBUG d74gty ot_pdt.build_essential() copy pub_* takes " <<
 //              elapsed2_us.count() << " us." << std::endl;
 //    fprintf(stderr, "DEBUG s8t6bx in ot build_essential pub_m_bp_m_size %lu\n", pub_m_bp_m_size);
+  }
+
+  void instance_essentia(centroid_builder_visitor &visitor) {
+    typename centroid_builder_visitor::representation_type root = visitor.get_root();
+
+    pub_m_centroid_path_string.assign(root->m_centroid_path_string.begin(),
+                                      root->m_centroid_path_string.end());
+    pub_m_centroid_path_branches.assign(root->m_centroid_path_branches.begin(),
+                                        root->m_centroid_path_branches.end());
+    pub_m_branching_chars.assign(root->m_branching_chars.begin(),
+                                 root->m_branching_chars.end());
+    pub_m_labels.assign(root->m_labels.begin(),
+                        root->m_labels.end());
+    pub_m_bp.clone_private_members(root->m_bp); //TODO Deprecated
+    pub_m_bp.expose_private(pub_m_bp_m_bits, pub_m_bp_m_size);
+
   }
 
   bp_vector m_bp;

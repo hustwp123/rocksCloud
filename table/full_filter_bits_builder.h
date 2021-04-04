@@ -17,10 +17,20 @@
 #include <vector>
 
 #include "rocksdb/filter_policy.h"
-
+#define USE_PDT_BUILDER
 namespace rocksdb {
 
 class Slice;
+using rocksdb::succinct::util::char_range;
+
+struct rocksdb_slice_adaptor {
+  char_range operator()(Slice const &s) const {
+    const uint8_t *buf = reinterpret_cast<const uint8_t *>(s.data());
+    const uint8_t *end = buf + s.size(); // dadd the null terminator
+    return char_range(buf, end);
+  }
+};
+
 // xp
 class OtLexPdtBloomBitsBuilder : public FilterBitsBuilder {
  public:
@@ -36,9 +46,19 @@ class OtLexPdtBloomBitsBuilder : public FilterBitsBuilder {
   ~OtLexPdtBloomBitsBuilder() override {}
 
   virtual void AddKey(const Slice& key) override {
+#ifndef USE_PDT_BUILDER
 //    fprintf(stderr, "in OtLexPdtBloomBitsBuilder::AddKey() idpaeq\n");
     std::string key_string(key.data(), key.data()+key.size());
     key_strings_.push_back(key_string);
+#else
+  int ret = 0;
+  if((ret = (key.compare(Slice(last_string)))) <= 0) {
+    std::cerr << "Warning:: Less key when add......(ret: " << ret << ")" << std::endl;
+    return ;
+  }
+  builder.add_key(visitor, key, rocksdb_slice_adaptor());
+  last_string.assign(key.data(), key.data()+key.size());
+#endif
   }
 
   uint32_t CalculateSpace(const int num_entry) {
@@ -46,6 +66,7 @@ class OtLexPdtBloomBitsBuilder : public FilterBitsBuilder {
   }
 
   virtual Slice Finish(std::unique_ptr<const char[]>* buf) override {
+#ifndef USE_PDT_BUILDER
 //    fprintf(stderr, "in OtLexPdtBloomBitsBuilder::Finish() 8qpeye\n");
     // generate a compacted trie and get essential data
     assert(key_strings_.size() > 0);
@@ -57,6 +78,11 @@ class OtLexPdtBloomBitsBuilder : public FilterBitsBuilder {
 
     //auto chrono_start = std::chrono::system_clock::now();
     ot_pdt.construct_compacted_trie(key_strings_, false); // ot_pdt.pub_ are inited
+    key_strings_.clear();
+#else
+    builder.finish(visitor);
+    ot_pdt.finish_essentia(visitor);
+#endif
     // auto chrono_end = std::chrono::system_clock::now();
     // std::chrono::microseconds elapsed_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_end-chrono_start);
     // std::cout << "DEBUG 3yb6fo Finis() ot_pdt use " << key_strings_.size() << " keys build raw trie takes(us) " <<
@@ -138,7 +164,6 @@ class OtLexPdtBloomBitsBuilder : public FilterBitsBuilder {
     // return a Slice with data and its byte length
     const char* const_data = contents;
     buf->reset(const_data);
-    key_strings_.clear();
     return Slice(contents, buf_byte_size);
 //=============
 //    uint32_t len_with_metadata =
@@ -172,6 +197,7 @@ class OtLexPdtBloomBitsBuilder : public FilterBitsBuilder {
   virtual Slice FinishWithString(std::string& buf)  {
 //    fprintf(stderr, "in OtLexPdtBloomBitsBuilder::Finish() 8qpeye\n");
     // generate a compacted trie and get essential data
+#ifndef USE_PDT_BUILDER
     assert(key_strings_.size() > 0);
     key_strings_.erase(unique(key_strings_.begin(),
                               key_strings_.end()),
@@ -179,6 +205,11 @@ class OtLexPdtBloomBitsBuilder : public FilterBitsBuilder {
     ot_pdt.bulk_load(key_strings_, rocksdb::succinct::tries::stl_string_adaptor());
     ot_pdt.Encode(&buf);
     key_strings_.clear();
+#else
+    builder.finish(visitor);
+    ot_pdt.instance(visitor);
+    ot_pdt.Encode(&buf);
+#endif
     return Slice(buf);
   }
 
@@ -277,7 +308,15 @@ class OtLexPdtBloomBitsBuilder : public FilterBitsBuilder {
   }
 
 
+#ifndef USE_PDT_BUILDER
   std::vector<std::string> key_strings_;  // vector for Slice.data
+#else
+  std::string last_string;
+  typedef rocksdb::succinct::tries::path_decomposed_trie<succinct::tries::vbyte_string_pool, true> Trie_t;
+  typedef Trie_t::centroid_builder_visitor builder_visitor_t;
+  builder_visitor_t visitor;
+  rocksdb::succinct::tries::compacted_trie_builder<builder_visitor_t> builder;
+#endif
 
   // a compacted trie, NO need for a ot lex pdt yet
   rocksdb::succinct::tries::path_decomposed_trie<

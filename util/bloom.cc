@@ -387,9 +387,13 @@ class OtLexPdtBloomBitsReader : public FilterBitsReader {
   bool MayMatch(const Slice& key) override {
     // idx = search_odt(key.data)
     // if idx != -1, success
+#ifndef USE_PDT_BUILDER
     std::string key_string(key.data(), key.data()+key.size());
 //    auto chrono_start = std::chrono::system_clock::now();
     size_t idx = ot_pdt.index(key_string);
+#else 
+    size_t idx = ot_pdt.index(key, rocksdb_slice_adaptor());
+#endif
 //    auto chrono_end = std::chrono::system_clock::now();
 //    std::chrono::microseconds elapsed_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_end-chrono_start);
 //    std::cout << "DEBUG la045n ot_pdt.index ret:" << idx << ", takes(us) " <<
