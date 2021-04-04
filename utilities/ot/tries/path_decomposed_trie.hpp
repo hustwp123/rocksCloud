@@ -37,6 +37,13 @@ struct path_decomposed_trie {
     build(strings, stl_string_adaptor());
   }
 
+  // sbh add
+  template <typename Range, typename Adaptor>
+  void bulk_load(Range const& strings,
+                       Adaptor adaptor = stl_string_adaptor()) {
+    build(strings, adaptor);
+  }
+
   //xp
 //  template <typename Range>
 //  path_decomposed_trie(Range const& strings, bool slim = 0) {

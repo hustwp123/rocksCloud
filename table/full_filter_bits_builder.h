@@ -169,6 +169,19 @@ class OtLexPdtBloomBitsBuilder : public FilterBitsBuilder {
 //    return Slice(data, len_with_metadata);
   }
 
+  virtual Slice FinishWithString(std::string& buf)  {
+//    fprintf(stderr, "in OtLexPdtBloomBitsBuilder::Finish() 8qpeye\n");
+    // generate a compacted trie and get essential data
+    assert(key_strings_.size() > 0);
+    key_strings_.erase(unique(key_strings_.begin(),
+                              key_strings_.end()),
+                       key_strings_.end()); //xp, for now simply dedup keys
+    ot_pdt.bulk_load(key_strings_, rocksdb::succinct::tries::stl_string_adaptor());
+    ot_pdt.Encode(&buf);
+    key_strings_.clear();
+    return Slice(buf);
+  }
+
   // ot lex pdt used byte size
   uint64_t CalculateByteSpace() {
     // calculate the byte size of format buf

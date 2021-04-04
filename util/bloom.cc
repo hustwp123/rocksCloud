@@ -319,7 +319,11 @@ class OtLexPdtBloomBitsReader : public FilterBitsReader {
 //    fprintf(stderr, "DEBUG pqc7a26 init OtLexPdtBloomBitsReader\n");
   }
 
-  explicit OtLexPdtBloomBitsReader(const char* buf) {
+  explicit OtLexPdtBloomBitsReader(const Slice& contents) {
+  const char* buf = contents.data();
+  #ifdef USE_STRING_FILTER
+    ot_pdt.Decode(&buf);
+  #else
     // construct a ot lex pdt
     // restore essential members from buf
     ot_pdt.pub_m_centroid_path_string.clear();
@@ -371,6 +375,7 @@ class OtLexPdtBloomBitsReader : public FilterBitsReader {
 //    std::chrono::microseconds elapsed_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_end-chrono_start);
 //    std::cout << "DEBUG cor73n ot_pdt.instance() takes " <<
 //              elapsed_us.count() << " us." << std::endl;
+#endif
   }
 
   // No Copy allowed
@@ -584,7 +589,7 @@ class BloomFilterPolicy : public FilterPolicy {
   FilterBitsReader* GetFilterBitsReader(const Slice& contents,bool isPdt=false) const override {
     if(isPdt)
     {
-      return new OtLexPdtBloomBitsReader(contents.data());
+      return new OtLexPdtBloomBitsReader(contents);
     }
     return new FullFilterBitsReader(contents);
   }

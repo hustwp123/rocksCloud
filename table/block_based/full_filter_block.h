@@ -19,6 +19,8 @@
 #include "table/format.h"
 #include "util/hash.h"
 
+#define USE_STRING_FILTER
+
 namespace rocksdb {
 
 class FilterPolicy;
@@ -77,9 +79,12 @@ class OtLexPdtFilterBlockBuilder : public FilterBlockBuilder {
   // at the time of destruction of this filter block. destructor
   // should NOT dereference them.
   uint32_t num_added_;
-  std::unique_ptr<const char[]> filter_data_;
   // sbh modify: replace with string
-  // std::string filter_data_;
+#ifdef USE_STRING_FILTER
+    std::string string_filter_data_;
+#else
+    std::unique_ptr<const char[]> filter_data_;
+#endif
   //TODO vector for all boundary keys in this Table
 };
 

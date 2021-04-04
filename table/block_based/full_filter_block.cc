@@ -17,6 +17,7 @@
 #include "port/port.h"
 #include "rocksdb/filter_policy.h"
 #include "table/block_based/block_based_table_reader.h"
+#include "table/full_filter_bits_builder.h"
 #include "util/coding.h"
 
 namespace rocksdb {
@@ -40,7 +41,17 @@ Slice OtLexPdtFilterBlockBuilder::Finish(const BlockHandle& /*tmp*/,
   *status = Status::OK();
   if (num_added_ != 0) {
     num_added_ = 0;
+#ifdef USE_STRING_FILTER
+    if(OtLexPdtBloomBitsBuilder *pdt_bits_builder =dynamic_cast<OtLexPdtBloomBitsBuilder *>(filter_bits_builder_.get()))
+    {
+      return pdt_bits_builder->FinishWithString(string_filter_data_);
+    }
+    else{
+      assert(0);
+    }
+#else
     return filter_bits_builder_->Finish(&filter_data_);
+#endif
   }
   return Slice();
 }
