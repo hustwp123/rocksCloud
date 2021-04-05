@@ -78,6 +78,7 @@ using GFLAGS_NAMESPACE::SetUsageMessage;
 DEFINE_int32(key_size, 10, "Key size");
 DEFINE_int32(value_size, 100, "Value size");
 DEFINE_string(db, "", "Use the db with the following name.");
+DEFINE_string(cloud_db, "", "Use the db with the following name.");
 DEFINE_bool(destroy_db, true,
             "Destroy the existing DB before running the test");
 

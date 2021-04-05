@@ -334,6 +334,8 @@ DEFINE_bool(use_block_based_filter, false, "use block based filter"
 
 DEFINE_string(db, "", "Use the db with the following name.");
 
+DEFINE_string(cloud_db, "", "Use the db with the following name.");
+
 DEFINE_string(secondaries_base, "",
               "Use this path as the base path for secondary instances.");
 

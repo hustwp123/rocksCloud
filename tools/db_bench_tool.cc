@@ -538,6 +538,8 @@ DEFINE_bool(show_table_properties, false,
 
 DEFINE_string(db, "", "Use the db with the following name.");
 
+DEFINE_string(cloud_db, "", "Use the db with the following name.");
+
 // Read cache flags
 
 DEFINE_string(read_cache_path, "",
@@ -3429,15 +3431,21 @@ class Benchmark {
     printf("Initializing RocksDB Options from command-line flags\n");
     Options& options = *opts;
 
-#define SBH_TEST
+    std::cout << "DB path: " << FLAGS_db << "." << std::endl 
+              << "Cloud db path: " << FLAGS_cloud_db << "." << std::endl;
+    options.db_paths.push_back({FLAGS_db, 10l*1024*1024*1024});
+    options.db_paths.push_back({FLAGS_cloud_db, 100l*1024*1024*1024});
 
-#ifndef SBH_TEST
-    options.db_paths={{"/home/will/wpdb/db1",10l*1024*1024*1024},
-    {"/home/will/wpdb/db2",100l*1024*1024*1024}};
-#else
-    options.db_paths={{"/mnt/OPTANE/sbh/rocksCloud/db1",10l*1024*1024*1024},
-    {"/mnt/OPTANE/sbh/rocksCloud/db2",100l*1024*1024*1024}};
-#endif
+
+// #define SBH_TEST
+
+// #ifndef SBH_TEST
+//     options.db_paths={{"/home/will/wpdb/db1",10l*1024*1024*1024},
+//     {"/home/will/wpdb/db2",100l*1024*1024*1024}};
+// #else
+//     options.db_paths={{"/mnt/OPTANE/sbh/rocksCloud/db1",10l*1024*1024*1024},
+//     {"/mnt/OPTANE/sbh/rocksCloud/db2",100l*1024*1024*1024}};
+// #endif
     assert(db_.db == nullptr);
 
     options.max_open_files = FLAGS_open_files;
