@@ -22,6 +22,7 @@ namespace rocksdb {
 
 class Slice;
 using rocksdb::succinct::util::char_range;
+using rocksdb::succinct::util::stl_string_adaptor;
 
 struct rocksdb_slice_adaptor {
   char_range operator()(Slice const &s) const {
@@ -46,18 +47,12 @@ class OtLexPdtBloomBitsBuilder : public FilterBitsBuilder {
   ~OtLexPdtBloomBitsBuilder() override {}
 
   virtual void AddKey(const Slice& key) override {
-#ifndef USE_PDT_BUILDER
 //    fprintf(stderr, "in OtLexPdtBloomBitsBuilder::AddKey() idpaeq\n");
     std::string key_string(key.data(), key.data()+key.size());
-    key_strings_.push_back(key_string);
+#ifdef USE_PDT_BUILDER
+    builder.add_key(visitor, key_string, stl_string_adaptor());
 #else
-  int ret = 0;
-  if((ret = (key.compare(Slice(last_string)))) <= 0) {
-    std::cerr << "Warning:: Less key when add......(ret: " << ret << ")" << std::endl;
-    return ;
-  }
-  builder.add_key(visitor, key, rocksdb_slice_adaptor());
-  last_string.assign(key.data(), key.data()+key.size());
+    key_strings_.push_back(key_string);
 #endif
   }
 
@@ -198,35 +193,35 @@ class OtLexPdtBloomBitsBuilder : public FilterBitsBuilder {
 //    fprintf(stderr, "in OtLexPdtBloomBitsBuilder::Finish() 8qpeye\n");
     // generate a compacted trie and get essential data
 #ifndef USE_STRING_FILTER
-  std::cout << "No define USE_STRING_FILTER" << std::endl;
-  abort();
+    std::cout << "No define USE_STRING_FILTER" << std::endl;
+    abort();
 #endif
 
-#ifndef USE_PDT_BUILDER
+#ifdef USE_PDT_BUILDER
+    builder.finish(visitor);
+    ot_pdt.instance(visitor);
+#else
     assert(key_strings_.size() > 0);
     key_strings_.erase(unique(key_strings_.begin(),
                               key_strings_.end()),
                        key_strings_.end()); //xp, for now simply dedup keys
     ot_pdt.bulk_load(key_strings_, rocksdb::succinct::tries::stl_string_adaptor());
-    ot_pdt.Encode(&buf);
-    std::cout << "Call: Finsh with string: " << key_strings_.size() << std::endl; 
-    rocksdb::succinct::tries::path_decomposed_trie<rocksdb::succinct::tries::vbyte_string_pool, true>
-      new_ot_pdt;
-    const char *buf_data = buf.c_str();
-    new_ot_pdt.Decode(&buf_data);
-
-    for(size_t i = 0; i < key_strings_.size(); i ++) {
-      if(new_ot_pdt[i] != ot_pdt[i]) { std::cout << "Decode or Encode error" << std::endl; }
-      if(new_ot_pdt.index(key_strings_[i]) != i ) { std::cout << "OT pdt error" << std::endl; }
-    }
-
     key_strings_.clear();
-#else
-    builder.finish(visitor);
-    ot_pdt.instance(visitor);
-    ot_pdt.Encode(&buf);
 #endif
-    // new_ot_pdt[i]
+    // rocksdb::succinct::tries::path_decomposed_trie<rocksdb::succinct::tries::vbyte_string_pool, true>
+    //  new_ot_pdt;
+    // const char *buf_data = buf.c_str();
+    // new_ot_pdt.Decode(&buf_data);
+
+    // for(size_t i = 0; i < key_strings_.size(); i ++) {
+    //  if(new_ot_pdt[i] != ot_pdt[i]) { std::cout << "Decode or Encode error" << std::endl; }
+    //  if(new_ot_pdt.index(key_strings_[i]) != i ) { std::cout << "OT pdt error" << std::endl; }
+    // }
+
+    // key_strings_.clear();
+    ot_pdt.Encode(&buf);
+    std::cout << "Filter size: " << buf.size() << std::endl;
+    
     return Slice(buf);
   }
 
@@ -325,23 +320,19 @@ class OtLexPdtBloomBitsBuilder : public FilterBitsBuilder {
   }
 
 
-#ifndef USE_PDT_BUILDER
   std::vector<std::string> key_strings_;  // vector for Slice.data
-#else
+#ifdef USE_PDT_BUILDER
   std::string last_string;
   typedef rocksdb::succinct::tries::path_decomposed_trie<succinct::tries::vbyte_string_pool, true> Trie_t;
   typedef Trie_t::centroid_builder_visitor builder_visitor_t;
   builder_visitor_t visitor;
+  size_t builder_keys = 0;
   rocksdb::succinct::tries::compacted_trie_builder<builder_visitor_t> builder;
 #endif
 
   // a compacted trie, NO need for a ot lex pdt yet
-  rocksdb::succinct::tries::path_decomposed_trie<
-      rocksdb::succinct::tries::vbyte_string_pool, true>
-      ot_pdt;
+  rocksdb::succinct::tries::path_decomposed_trie<rocksdb::succinct::tries::vbyte_string_pool, true> ot_pdt;
 };
-
-
 
 
 
