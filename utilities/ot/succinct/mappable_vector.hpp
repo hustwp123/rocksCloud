@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <algorithm>
+#include <string>
 
 #include <boost/utility.hpp>
 #include <boost/range.hpp>
@@ -96,6 +97,10 @@ class mappable_vector : boost::noncopyable {
     m_deleter = boost::lambda::bind(boost::lambda::delete_array(), data);
     std::copy((T *)(*src), ((T *)(*src)) + m_size, data);
     m_data = data;
+
+    // // Reuse src
+    // m_deleter = 0;
+    // m_data = (T *)(*src);
 
     *src += m_size * sizeof(T);
   }

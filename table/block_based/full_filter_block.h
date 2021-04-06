@@ -19,7 +19,7 @@
 #include "table/format.h"
 #include "util/hash.h"
 
-#define USE_STRING_FILTER
+// #define USE_STRING_FILTER
 
 namespace rocksdb {
 

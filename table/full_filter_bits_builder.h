@@ -17,7 +17,7 @@
 #include <vector>
 
 #include "rocksdb/filter_policy.h"
-#define USE_PDT_BUILDER
+// #define USE_PDT_BUILDER
 namespace rocksdb {
 
 class Slice;
@@ -197,6 +197,11 @@ class OtLexPdtBloomBitsBuilder : public FilterBitsBuilder {
   virtual Slice FinishWithString(std::string& buf)  {
 //    fprintf(stderr, "in OtLexPdtBloomBitsBuilder::Finish() 8qpeye\n");
     // generate a compacted trie and get essential data
+#ifndef USE_STRING_FILTER
+  std::cout << "No define USE_STRING_FILTER" << std::endl;
+  abort();
+#endif
+
 #ifndef USE_PDT_BUILDER
     assert(key_strings_.size() > 0);
     key_strings_.erase(unique(key_strings_.begin(),
@@ -204,12 +209,24 @@ class OtLexPdtBloomBitsBuilder : public FilterBitsBuilder {
                        key_strings_.end()); //xp, for now simply dedup keys
     ot_pdt.bulk_load(key_strings_, rocksdb::succinct::tries::stl_string_adaptor());
     ot_pdt.Encode(&buf);
+    std::cout << "Call: Finsh with string: " << key_strings_.size() << std::endl; 
+    rocksdb::succinct::tries::path_decomposed_trie<rocksdb::succinct::tries::vbyte_string_pool, true>
+      new_ot_pdt;
+    const char *buf_data = buf.c_str();
+    new_ot_pdt.Decode(&buf_data);
+
+    for(size_t i = 0; i < key_strings_.size(); i ++) {
+      if(new_ot_pdt[i] != ot_pdt[i]) { std::cout << "Decode or Encode error" << std::endl; }
+      if(new_ot_pdt.index(key_strings_[i]) != i ) { std::cout << "OT pdt error" << std::endl; }
+    }
+
     key_strings_.clear();
 #else
     builder.finish(visitor);
     ot_pdt.instance(visitor);
     ot_pdt.Encode(&buf);
 #endif
+    // new_ot_pdt[i]
     return Slice(buf);
   }
 

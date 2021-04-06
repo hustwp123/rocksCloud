@@ -7,6 +7,7 @@
 
 #include <functional>
 #include <cstring>
+#include <string>
 
 namespace rocksdb {
 namespace succinct {
