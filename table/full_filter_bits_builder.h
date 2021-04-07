@@ -159,6 +159,8 @@ class OtLexPdtBloomBitsBuilder : public FilterBitsBuilder {
     // return a Slice with data and its byte length
     const char* const_data = contents;
     buf->reset(const_data);
+    std::cout << "Essential_Filter size: " << buf_byte_size << std::endl; 
+
     return Slice(contents, buf_byte_size);
 //=============
 //    uint32_t len_with_metadata =
