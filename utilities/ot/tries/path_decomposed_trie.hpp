@@ -343,13 +343,13 @@ struct path_decomposed_trie {
   }
   
   // sbh add 
-  void Encode(std::string *dst) {
+  void Encode(EncodeArgs *dst) {
       m_bp.Encode(dst);
       m_branching_chars.Encode(dst);
       m_labels.Encode(dst);
   }
 
-  void Decode(const char **src) {
+  void Decode(DecodeArgs *src) {
       m_bp.Decode(src);
       m_branching_chars.Decode(src);
       m_labels.Decode(src);

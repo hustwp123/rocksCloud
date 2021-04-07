@@ -50,12 +50,12 @@ struct gamma_vector {
   }
 
   // sbh add 
-  void Encode(std::string *dst) {
+  void Encode(EncodeArgs *dst) {
       m_high_bits.Encode(dst);  
       m_low_bits.Encode(dst);
   }
 
-  void Decode(const char **src) {
+  void Decode(DecodeArgs *src) {
       m_high_bits.Decode(src);
       m_low_bits.Decode(src);
   }

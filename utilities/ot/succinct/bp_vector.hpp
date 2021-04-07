@@ -38,14 +38,14 @@ class bp_vector : public rs_bit_vector {
   }
 
   // sbh add
-  void Encode(std::string *dst) {
+  void Encode(EncodeArgs *dst) {
     rs_bit_vector::Encode(dst);
     EncodeType(dst, m_internal_nodes);
     m_block_excess_min.Encode(dst);
     m_superblock_excess_min.Encode(dst);
   }
 
-  void Decode(const char **src) {
+  void Decode(DecodeArgs *src) {
     rs_bit_vector::Decode(src);
     DecodeType(src, m_internal_nodes);
     m_block_excess_min.Decode(src);

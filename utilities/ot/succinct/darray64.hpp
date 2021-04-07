@@ -48,14 +48,14 @@ struct darray64 {
   }
 
   // sbh add
-  void Encode(std::string *dst) {
+  void Encode(EncodeArgs *dst) {
       EncodeType(dst, m_num_ones);
       m_bits.Encode(dst);
       m_block_inventory.Encode(dst);
       m_subblock_inventory.Encode(dst);
   }
 
-  void Decode(const char **src) {
+  void Decode(DecodeArgs *src) {
       DecodeType(src, m_num_ones);
       m_bits.Decode(src);
       m_block_inventory.Decode(src);

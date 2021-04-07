@@ -20,30 +20,42 @@ namespace succinct {
 // sbh add
 struct EncodeArgs {
   size_t size;
-  std::string dst;
-  EncodeArgs(std::string& buf) : dst(buf) {}
+  std::string *dst;
+  EncodeArgs(std::string* buf) : size(0), dst(buf) {}
 };
 
 struct DecodeArgs {
   size_t size;
   const char *src;
-  DecodeArgs(const char *buf) : src(buf) {}
+  DecodeArgs(const char *buf) : size(0), src(buf) {}
 };
 
 template <typename T> 
-static void EncodeType(std::string *dst, T value)
+static void EncodeType(EncodeArgs *arg, T value)
 {
-    char buf[sizeof(T) + 1];
-    memcpy(buf, &value, sizeof(T));
-    dst->append(buf, sizeof(T));
+    arg->dst->append((const char *)&value, sizeof(T));
+    arg->size += sizeof(T);
 }
 
 template <typename T> 
-static void DecodeType(const char **src, T &value)
+static void DecodeType(DecodeArgs *arg, T &value)
 {
-    memcpy(&value, *src, sizeof(T));
-    *src = (*src) + sizeof(T);
+    memcpy(&value, arg->src, sizeof(T));
+    arg->src += sizeof(T);
+    arg->size += sizeof(T);
 }
+
+  static inline void EncodeNone(EncodeArgs *arg, size_t n) {
+      char buf[n+1];
+      arg->dst->append((const char *)buf, n);
+      arg->size += n;
+  }
+
+  static inline void DecodeNone(DecodeArgs *arg, size_t n)
+  {
+      arg->src += n;
+      arg->size += n;
+  }
 
 namespace mapper {
 
@@ -89,32 +101,39 @@ class mappable_vector : boost::noncopyable {
   }
  
   // sbh add
-  void Encode(std::string *dst) {
-    EncodeType(dst, m_size);
+  void Encode(EncodeArgs *arg) {
+    EncodeType(arg, m_size);
     if(m_size == 0) return;
 
-    char buf[m_size * sizeof(T) + 1];
-    memcpy(buf, m_data, m_size * sizeof(T));
-    dst->append(buf, m_size * sizeof(T));
+    if((arg->size % sizeof(T)) != 0) {
+      EncodeNone(arg, sizeof(T) - (arg->size % sizeof(T)));
+    }
+    arg->dst->append((const char *)m_data, m_size * sizeof(T));
+    arg->size += m_size * sizeof(T);
     // std::cout << "Encode: (" << m_size << ")" << std::endl;
   }
 
-  void Decode(const char **src) {
-    DecodeType(src, m_size);
+  void Decode(DecodeArgs *arg) {
+    DecodeType(arg, m_size);
     if(m_size == 0) return;
+
+    if((arg->size % sizeof(T)) != 0) {
+      DecodeNone(arg, sizeof(T) - (arg->size % sizeof(T)));
+    }
     // std::cout << "Decode: (" << m_size << ")" << std::endl;
 #ifdef REUSE_DECODE_BUF
     m_deleter = 0;
-    m_data = (T *)(*src);
+    m_data = (T *)(arg->src);
 #else
     if(m_data && m_deleter) m_deleter();
 
     T* data = new T[m_size];
     m_deleter = boost::lambda::bind(boost::lambda::delete_array(), data);
-    std::copy((T *)(*src), ((T *)(*src)) + m_size, data);
+    std::copy((T *)(arg->src), ((T *)(arg->src)) + m_size, data);
     m_data = data;
 #endif
-    *src += m_size * sizeof(T);
+    arg->src += m_size * sizeof(T);
+    arg->size += m_size * sizeof(T);
   }
 
   void clear() { mappable_vector().swap(*this); }

@@ -224,12 +224,12 @@ class bit_vector {
   }
 
   // sbh add
-  void Encode(std::string *dst) {
+  void Encode(EncodeArgs *dst) {
     EncodeType(dst, m_size);
     m_bits.Encode(dst);
   }
 
-  void Decode(const char **src) {
+  void Decode(DecodeArgs *src) {
     DecodeType(src, m_size);
     m_bits.Decode(src);
   }

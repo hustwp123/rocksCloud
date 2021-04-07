@@ -155,11 +155,11 @@ class cartesian_tree : boost::noncopyable {
   }
 
   // sbh add
-  void Encode(std::string *dst) {
+  void Encode(EncodeArgs *dst) {
     m_bp.Encode(dst);
   }
 
-  void Decode(const char **src) {
+  void Decode(DecodeArgs *src) {
     m_bp.Decode(src);
   }
 

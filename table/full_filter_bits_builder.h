@@ -221,7 +221,9 @@ class OtLexPdtBloomBitsBuilder : public FilterBitsBuilder {
     // }
 
     // key_strings_.clear();
-    ot_pdt.Encode(&buf);
+    using rocksdb::succinct::EncodeArgs;
+    EncodeArgs arg(&buf);
+    ot_pdt.Encode(&arg);
     std::cout << "Filter size: " << buf.size() << std::endl;
     
     return Slice(buf);

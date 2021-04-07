@@ -102,12 +102,12 @@ struct vbyte_string_pool {
   }
 
   // sbh add 
-  void Encode(std::string *dst) {
+  void Encode(EncodeArgs *dst) {
       m_byte_streams.Encode(dst);
       m_positions.Encode(dst);
   }
 
-  void Decode(const char **src) {
+  void Decode(DecodeArgs *src) {
       m_byte_streams.Decode(src);
       m_positions.Decode(src);
   }

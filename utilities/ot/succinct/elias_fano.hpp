@@ -90,7 +90,7 @@ class elias_fano {
   }
 
   // sbh add 
-  void Encode(std::string *dst) {
+  void Encode(EncodeArgs *dst) {
       EncodeType(dst, m_size);
       m_high_bits.Encode(dst);
       m_high_bits_d1.Encode(dst);
@@ -99,7 +99,7 @@ class elias_fano {
       EncodeType(dst, m_l);
   }
 
-  void Decode(const char **src) {
+  void Decode(DecodeArgs *src) {
       DecodeType(src, m_size);
       m_high_bits.Decode(src);
       m_high_bits_d1.Decode(src);

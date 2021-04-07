@@ -36,14 +36,14 @@ class rs_bit_vector : public bit_vector {
     m_select0_hints.swap(other.m_select0_hints);
   }
 
-  void Encode(std::string *dst) {
+  void Encode(EncodeArgs *dst) {
       bit_vector::Encode(dst);
       m_block_rank_pairs.Encode(dst);
       m_select_hints.Encode(dst);
       m_select0_hints.Encode(dst);
   }
   
-  void Decode(const char **src) {
+  void Decode(DecodeArgs *src) {
       bit_vector::Decode(src);
       m_block_rank_pairs.Decode(src);
       m_select_hints.Decode(src);

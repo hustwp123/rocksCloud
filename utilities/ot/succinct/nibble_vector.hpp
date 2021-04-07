@@ -47,12 +47,12 @@ class nibble_vector {
   }
 
   // sbh add 
-  void Encode(std::string *dst) {
+  void Encode(EncodeArgs *dst) {
       EncodeType(dst, m_size);
       m_nibbles.Encode(dst);  
   }
 
-  void Decode(const char **src) {
+  void Decode(DecodeArgs *src) {
       DecodeType(src, m_size);
       m_nibbles.Decode(src);
   }

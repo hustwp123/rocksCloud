@@ -67,14 +67,14 @@ class darray {
   }
 
   // sbh add
-  void Encode(std::string *dst) {
+  void Encode(EncodeArgs *dst) {
       EncodeType(dst, m_positions);
       m_block_inventory.Encode(dst);
       m_subblock_inventory.Encode(dst);
       m_overflow_positions.Encode(dst);
   }
 
-  void Decode(const char **src) {
+  void Decode(DecodeArgs *src) {
       DecodeType(src, m_positions);
       m_block_inventory.Decode(src);
       m_subblock_inventory.Decode(src);

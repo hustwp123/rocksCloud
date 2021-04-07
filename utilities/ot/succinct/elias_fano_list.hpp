@@ -41,11 +41,11 @@ struct elias_fano_list {
   void swap(elias_fano_list& other) { m_ef.swap(other.m_ef); }
 
   // sbh add
-  void Encode(std::string *dst) {
+  void Encode(EncodeArgs *dst) {
       m_ef.Encode(dst);
   }
 
-  void Decode(const char **src) {
+  void Decode(DecodeArgs *src) {
       m_ef.Decode(src);
   }
 

@@ -138,14 +138,14 @@ struct compressed_string_pool {
     m_positions.swap(other.m_positions);
   }
 
-  void Encode(std::string *dst) {
+  void Encode(EncodeArgs *dst) {
       m_dictionary.Encode(dst);
       m_word_positions.Encode(dst);
       m_byte_streams.Encode(dst);
       m_positions.Encode(dst);
   }
   
-  void Decode(const char **src) {
+  void Decode(DecodeArgs *src) {
       m_dictionary.Decode(src);
       m_word_positions.Decode(src);
       m_byte_streams.Decode(src);

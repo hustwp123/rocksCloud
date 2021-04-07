@@ -243,12 +243,12 @@ namespace succinct {
         }
 
          // sbh add 
-        void Encode(std::string *dst) {
+        void Encode(EncodeArgs *dst) {
             EncodeType(dst, m_size_);
             m_bits_.Encode(dst);
         }
 
-        void Decode(const char **src) {
+        void Decode(DecodeArgs *src) {
             DecodeType(src, m_size_);
             m_bits_.Decode(src);
         }
