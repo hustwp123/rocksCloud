@@ -18,6 +18,18 @@ namespace rocksdb {
 namespace succinct {
 
 // sbh add
+struct EncodeArgs {
+  size_t size;
+  std::string dst;
+  EncodeArgs(std::string& buf) : dst(buf) {}
+};
+
+struct DecodeArgs {
+  size_t size;
+  const char *src;
+  DecodeArgs(const char *buf) : src(buf) {}
+};
+
 template <typename T> 
 static void EncodeType(std::string *dst, T value)
 {
@@ -91,17 +103,17 @@ class mappable_vector : boost::noncopyable {
     DecodeType(src, m_size);
     if(m_size == 0) return;
     // std::cout << "Decode: (" << m_size << ")" << std::endl;
+#ifdef REUSE_DECODE_BUF
+    m_deleter = 0;
+    m_data = (T *)(*src);
+#else
     if(m_data && m_deleter) m_deleter();
 
     T* data = new T[m_size];
     m_deleter = boost::lambda::bind(boost::lambda::delete_array(), data);
     std::copy((T *)(*src), ((T *)(*src)) + m_size, data);
     m_data = data;
-
-    // // Reuse src
-    // m_deleter = 0;
-    // m_data = (T *)(*src);
-
+#endif
     *src += m_size * sizeof(T);
   }
 

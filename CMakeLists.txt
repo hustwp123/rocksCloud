@@ -49,6 +49,7 @@ include_directories("utilities/ot/repair")
 
 add_definitions(-DUSE_STRING_FILTER=1)
 add_definitions(-DUSE_PDT_BUILDER=1)
+add_definitions(-DREUSE_DECODE_BUF=1)
 
 if(POLICY CMP0042)
   cmake_policy(SET CMP0042 NEW)
