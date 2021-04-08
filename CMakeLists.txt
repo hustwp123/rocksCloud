@@ -47,7 +47,7 @@ include_directories("utilities/ot/succinct")
 include_directories("utilities/ot/tries")
 include_directories("utilities/ot/repair")
 
-add_definitions(-DUSE_STRING_FILTER=1)
+add_definitions(-DUSE_FULL_OT_PDT=1)
 add_definitions(-DUSE_PDT_BUILDER=1)
 add_definitions(-DREUSE_DECODE_BUF=1)
 

@@ -321,10 +321,10 @@ class OtLexPdtBloomBitsReader : public FilterBitsReader {
 
   explicit OtLexPdtBloomBitsReader(const Slice& contents) {
   const char* buf = contents.data();
-  #ifdef USE_STRING_FILTER
+  #ifdef USE_FULL_OT_PDT
     using rocksdb::succinct::DecodeArgs;
     DecodeArgs arg(buf);
-    fprintf(stdout, "Filter buf:%p\n", buf);
+    fprintf(stdout, "Filter buf:%p, size %ld\n", buf, contents.size());
     ot_pdt.Decode(&arg);
   #else
     // construct a ot lex pdt

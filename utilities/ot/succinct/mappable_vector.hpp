@@ -20,8 +20,9 @@ namespace succinct {
 // sbh add
 struct EncodeArgs {
   size_t size;
-  std::string *dst;
-  EncodeArgs(std::string* buf) : size(0), dst(buf) {}
+  char *dst;
+  bool only_size = true;
+  EncodeArgs(char* buf) : size(0), dst(buf) {}
 };
 
 struct DecodeArgs {
@@ -30,32 +31,55 @@ struct DecodeArgs {
   DecodeArgs(const char *buf) : size(0), src(buf) {}
 };
 
-template <typename T> 
-static void EncodeType(EncodeArgs *arg, T value)
-{
-    arg->dst->append((const char *)&value, sizeof(T));
-    arg->size += sizeof(T);
+static inline void EncodeNone(EncodeArgs *arg, size_t n) {
+    char buf[n+1];
+    if(!arg->only_size) {
+      arg->dst += n;
+    }
+    arg->size += n;
 }
 
 template <typename T> 
-static void DecodeType(DecodeArgs *arg, T &value)
+static inline void EncodeType(EncodeArgs *arg, T value)
 {
-    memcpy(&value, arg->src, sizeof(T));
+  if(!arg->only_size) {
+    *(T *)(arg->dst) = value;
+    arg->dst += sizeof(T);
+  }
+  arg->size += sizeof(T);
+}
+
+template <typename T> 
+static inline void EncodeArray(EncodeArgs *arg, T *array, size_t n)
+{
+  if(!arg->only_size) {
+    memcpy(arg->dst, array, sizeof(T) * n);
+    arg->dst += sizeof(T) * n;
+  }
+  arg->size += sizeof(T) * n;
+}
+
+template <typename T> 
+static inline void DecodeType(DecodeArgs *arg, T &value)
+{
+    value = *(const T *)(arg->src);
     arg->src += sizeof(T);
     arg->size += sizeof(T);
 }
 
-  static inline void EncodeNone(EncodeArgs *arg, size_t n) {
-      char buf[n+1];
-      arg->dst->append((const char *)buf, n);
-      arg->size += n;
-  }
+template <typename T> 
+static inline void DecodeArray(DecodeArgs *arg, T * &array, size_t n)
+{
+  array = (T *)(arg->src);
+  arg->src += sizeof(T) * n;
+  arg->size += sizeof(T) * n;
+}
 
-  static inline void DecodeNone(DecodeArgs *arg, size_t n)
-  {
-      arg->src += n;
-      arg->size += n;
-  }
+static inline void DecodeNone(DecodeArgs *arg, size_t n)
+{
+    arg->src += n;
+    arg->size += n;
+}
 
 namespace mapper {
 
@@ -108,8 +132,8 @@ class mappable_vector : boost::noncopyable {
     if((arg->size % sizeof(T)) != 0) {
       EncodeNone(arg, sizeof(T) - (arg->size % sizeof(T)));
     }
-    arg->dst->append((const char *)m_data, m_size * sizeof(T));
-    arg->size += m_size * sizeof(T);
+
+    EncodeArray(arg, m_data, m_size);
     // std::cout << "Encode: (" << m_size << ")" << std::endl;
   }
 
@@ -120,20 +144,21 @@ class mappable_vector : boost::noncopyable {
     if((arg->size % sizeof(T)) != 0) {
       DecodeNone(arg, sizeof(T) - (arg->size % sizeof(T)));
     }
+
+    if(m_data && m_deleter) m_deleter();
     // std::cout << "Decode: (" << m_size << ")" << std::endl;
+    T *tmp_data = nullptr;
+    DecodeArray(arg, tmp_data, m_size);
+
 #ifdef REUSE_DECODE_BUF
     m_deleter = 0;
-    m_data = (T *)(arg->src);
+    m_data = tmp_data;
 #else
-    if(m_data && m_deleter) m_deleter();
-
     T* data = new T[m_size];
     m_deleter = boost::lambda::bind(boost::lambda::delete_array(), data);
-    std::copy((T *)(arg->src), ((T *)(arg->src)) + m_size, data);
+    std::copy((T *)(tmp_data), ((T *)(tmp_data)) + m_size, data);
     m_data = data;
 #endif
-    arg->src += m_size * sizeof(T);
-    arg->size += m_size * sizeof(T);
   }
 
   void clear() { mappable_vector().swap(*this); }
