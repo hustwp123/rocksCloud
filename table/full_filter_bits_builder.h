@@ -229,6 +229,7 @@ virtual Slice Finish(std::unique_ptr<const char[]>* buf) override {
     contents = new char[buf_byte_size];
     arg.dst = contents;
     arg.only_size = false;
+    arg.size = 0;
     ot_pdt.Encode(&arg);
 #else
     uint64_t ot_lex_pdt_byte_size = CalculateByteSpace();
