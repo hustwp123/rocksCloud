@@ -149,7 +149,7 @@ struct compressed_string_pool {
       m_dictionary.Decode(src);
       m_word_positions.Decode(src);
       m_byte_streams.Decode(src);
-      m_positions.Encode(src);
+      m_positions.Decode(src);
   }
 
   template <typename Visitor>

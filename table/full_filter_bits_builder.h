@@ -190,19 +190,12 @@ class OtLexPdtBloomBitsBuilder : public FilterBitsBuilder {
 // //    hash_entries_.clear();
 // //    return Slice(data, len_with_metadata);
 //   }
-
-virtual Slice Finish(std::unique_ptr<const char[]>* buf) override {
+  virtual void FinishStruct() {
 #ifndef USE_PDT_BUILDER
-//    fprintf(stderr, "in OtLexPdtBloomBitsBuilder::Finish() 8qpeye\n");
-    // generate a compacted trie and get essential data
     assert(key_strings_.size() > 0);
     key_strings_.erase(unique(key_strings_.begin(),
                               key_strings_.end()),
-                       key_strings_.end()); //xp, for now simply dedup keys
-
-//    fprintf(stdout, "DEBUG w7zvbg key_strings_.size: %lu\n", key_strings_.size());
-
-    //auto chrono_start = std::chrono::system_clock::now();
+                              key_strings_.end()); //xp, for now simply dedup keys
 #ifdef USE_FULL_OT_PDT
     ot_pdt.bulk_load(key_strings_, rocksdb::succinct::tries::stl_string_adaptor());;
 #else
@@ -217,6 +210,11 @@ virtual Slice Finish(std::unique_ptr<const char[]>* buf) override {
     ot_pdt.finish_essentia(visitor);
 #endif
 #endif
+    finished_ = true;
+  }
+
+  virtual Slice Finish(std::unique_ptr<const char[]>* buf) override {
+    if(!finished_) { FinishStruct(); }
 
 #ifdef USE_FULL_OT_PDT
     using rocksdb::succinct::EncodeArgs;
@@ -265,6 +263,40 @@ virtual Slice Finish(std::unique_ptr<const char[]>* buf) override {
     fprintf(stdout, "Filter size: %ld, contents ptr: %p\n", buf_byte_size, contents);
     return Slice(contents, buf_byte_size);
   }
+
+  void FillData(char *contents, size_t buf_byte_size) {
+    if(!finished_) { FinishStruct(); }
+
+#ifdef USE_FULL_OT_PDT
+    using rocksdb::succinct::EncodeArgs;
+    EncodeArgs arg(contents);
+    arg.only_size = false;
+    arg.size = 0;
+    ot_pdt.Encode(&arg);
+#else
+    assert(contents);
+    char new_impl = static_cast<char>(-1);
+    char sub_impl = static_cast<char>(80); // 'P'
+    char fake_num_probes = static_cast<char>(7);
+
+    PutIntoCharArray(ot_pdt.pub_m_centroid_path_string,
+                     ot_pdt.pub_m_labels,
+                     ot_pdt.pub_m_centroid_path_branches,
+                     ot_pdt.pub_m_branching_chars,
+                     ot_pdt.pub_m_bp_m_bits,
+                     ot_pdt.pub_m_bp_m_size,
+                     new_impl,
+                     sub_impl,
+                     fake_num_probes,
+                     buf_byte_size,
+                     contents);
+
+    assert(sizeof(ot_pdt.pub_m_bp_m_size) != 0);
+#endif
+    // return a Slice with data and its byte length
+    const char* const_data = contents;
+    fprintf(stdout, "Filter size: %ld, contents ptr: %p\n", buf_byte_size, contents);
+  }
 //   virtual Slice FinishWithString(std::string& buf)  {
 // //    fprintf(stderr, "in OtLexPdtBloomBitsBuilder::Finish() 8qpeye\n");
 //     // generate a compacted trie and get essential data
@@ -308,10 +340,21 @@ virtual Slice Finish(std::unique_ptr<const char[]>* buf) override {
   // ot lex pdt used byte size
   uint64_t CalculateByteSpace() {
     // calculate the byte size of format buf
+    if(!finished_) { FinishStruct(); }
+    
+#ifdef USE_FULL_OT_PDT
+    using rocksdb::succinct::EncodeArgs;
+    char* contents = nullptr;
+    EncodeArgs arg(contents);
+    arg.only_size = true;
+    ot_pdt.Encode(&arg);
+    return arg.size ;
+#else
     return (ot_pdt.pub_m_centroid_path_string.size()+ot_pdt.pub_m_labels.size())*2 +
         ot_pdt.pub_m_centroid_path_branches.size()+ ot_pdt.pub_m_branching_chars.size() +
         ot_pdt.pub_m_bp_m_bits.size() * 8 + 8 +
         5 * 4; // sizes of above vectors
+#endif
   }
 
   // put essential data into char[], and this char[] will be stored in the Slice
@@ -412,6 +455,7 @@ virtual Slice Finish(std::unique_ptr<const char[]>* buf) override {
 
   // a compacted trie, NO need for a ot lex pdt yet
   rocksdb::succinct::tries::path_decomposed_trie<rocksdb::succinct::tries::vbyte_string_pool, true> ot_pdt;
+  bool finished_ = false;
 };
 
 
@@ -447,6 +491,8 @@ class FullFilterBitsBuilder : public FilterBitsBuilder {
   // Calculate space for new filter. This is reverse of CalculateNumEntry.
   uint32_t CalculateSpace(const int num_entry, uint32_t* total_bits,
                           uint32_t* num_lines);
+
+  void FillData(char *data, uint32_t total_bits, uint32_t num_lines);
 
  private:
   friend class FullFilterBlockTest_DuplicateEntries_Test;

@@ -1425,8 +1425,8 @@ Status CompactionJob::OpenCompactionOutputFile(
   assert(sub_compact->builder == nullptr);
   // no need to lock because VersionSet::next_file_number_ is atomic
   uint64_t file_number = versions_->NewFileNumber();
-  //wp
-  uint32_t path_id=sub_compact->compaction->output_level()>=2?1:sub_compact->compaction->output_path_id();
+  //wp: note: store up level 2 at other path 
+  uint32_t path_id = sub_compact->compaction->output_level() >= 2 ? 1:sub_compact->compaction->output_path_id();
   std::string fname =
       TableFileName(sub_compact->compaction->immutable_cf_options()->cf_paths,
                     file_number, path_id);

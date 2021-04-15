@@ -13,6 +13,7 @@
 #include "table/block_based/block_based_filter_block.h"
 #include "table/block_based/full_filter_block.h"
 #include "table/full_filter_bits_builder.h"
+#include "table/bloom_trie_filter_bits.h"
 #include "util/coding.h"
 #include "util/hash.h"
 
@@ -20,6 +21,35 @@ namespace rocksdb {
 
 class BlockBasedFilterBlockBuilder;
 class FullFilterBlockBuilder;
+
+Slice BloomTrieFilterBitsBuilder::Finish(std::unique_ptr<const char[]>* buf) {
+    uint32_t total_bits= 0, num_lines = 0, bloom_size = 0, opt_size = 0;
+    uint32_t space = CalculateSpace(num_added_, &total_bits, &num_lines, &bloom_size, &opt_size);
+
+    // fprintf(stdout, "BloomTrieFilterBitsBuilder Finished, bloom_size %u, opt_size.\n",
+    //          bloom_size, opt_size);
+
+    char* data = new char[space];
+    assert(data);
+    char *fill_data = data;
+    if(with_full_) {
+      full_builder.FillData(fill_data, total_bits, num_lines);
+      fill_data += (bloom_size + CACHE_LINE_SIZE - 1) & (~(CACHE_LINE_SIZE - 1)) ;
+    }
+
+    if(with_opt_) {
+      opt_builder.FillData(fill_data, opt_size);
+      fill_data += opt_size;
+    }
+
+    EncodeFixed32(fill_data, static_cast<uint32_t>(bloom_size)); // Add Bloom data size
+    fill_data += 4;
+    EncodeFixed32(fill_data, static_cast<uint32_t>(opt_size)); // Add opt data size
+    fill_data += 4;
+    buf->reset(data);
+    assert(space == (fill_data - data));
+    return Slice(data, fill_data - data);
+}
 
 FullFilterBitsBuilder::FullFilterBitsBuilder(const size_t bits_per_key,
                                              const size_t num_probes)
@@ -55,6 +85,17 @@ FullFilterBitsBuilder::FullFilterBitsBuilder(const size_t bits_per_key,
     hash_entries_.clear();
 
     return Slice(data, total_bits / 8 + 5);
+  }
+
+  void FullFilterBitsBuilder::FillData(char *data, uint32_t total_bits, uint32_t num_lines) {
+    if (total_bits != 0 && num_lines != 0) {
+      for (auto h : hash_entries_) {
+        AddHash(h, data, num_lines, total_bits);
+      }
+    }
+    data[total_bits/8] = static_cast<char>(num_probes_);
+    EncodeFixed32(data + total_bits/8 + 1, static_cast<uint32_t>(num_lines));
+    hash_entries_.clear();
   }
 
 uint32_t FullFilterBitsBuilder::GetTotalBitsForLocality(uint32_t total_bits) {
@@ -324,7 +365,7 @@ class OtLexPdtBloomBitsReader : public FilterBitsReader {
   #ifdef USE_FULL_OT_PDT
     using rocksdb::succinct::DecodeArgs;
     DecodeArgs arg(buf);
-    fprintf(stdout, "Filter buf:%p, size %ld\n", buf, contents.size());
+    // fprintf(stdout, "Filter buf:%p, size %ld\n", buf, contents.size());
     ot_pdt.Decode(&arg);
   #else
     // construct a ot lex pdt
@@ -508,6 +549,67 @@ class OtLexPdtBloomBitsReader : public FilterBitsReader {
   //TODO
 };
 
+// sbh add:
+class BloomTrieFilterBitsReader : public FilterBitsReader {
+ public:
+  explicit BloomTrieFilterBitsReader(const Slice& contents) {
+    uint32_t bloom_size = 0, opt_size = 0, recover_size = 0;
+    uint32_t len = static_cast<uint32_t>(contents.size());
+    if (len <= 4) {
+      use_full_ = false;
+      use_opt_ = false;
+      return;
+    }
+
+    bloom_size = DecodeFixed32(contents.data() + len - 8);
+    opt_size = DecodeFixed32(contents.data() + len - 4);
+
+    if(bloom_size) {
+      full_bits_reader = new FullFilterBitsReader(Slice(contents.data(), bloom_size));
+      recover_size = (bloom_size + CACHE_LINE_SIZE - 1) & (~(CACHE_LINE_SIZE - 1));
+      use_full_ = true;
+    }
+
+    if(opt_size) {
+      pdt_bits_reader = new OtLexPdtBloomBitsReader(Slice(contents.data() + recover_size, len - recover_size));
+      use_opt_ = true;
+    }
+
+  }
+
+  void operator=(const BloomTrieFilterBitsReader&) = delete;
+
+  ~BloomTrieFilterBitsReader() override {
+    if(full_bits_reader) delete full_bits_reader;
+    if(pdt_bits_reader) delete pdt_bits_reader;
+  }
+
+  bool MayMatch(const Slice& key) override {
+    bool may_match = true;
+    if(use_full_) {
+      may_match = full_bits_reader->MayMatch(key);
+      if(!may_match) return may_match;
+    }
+
+    if(use_opt_) {
+      may_match = pdt_bits_reader->MayMatch(key);
+    }
+    return may_match;
+  }
+
+  virtual void MayMatch(int num_keys, Slice** keys, bool* may_match) override {
+    // fprintf(stdout, "DEBUG w3xm82 in OtBitsReader::MayMatch(num_keys)\n");
+    for (int i = 0; i < num_keys; ++i) {
+      may_match[i] = MayMatch(*keys[i]);
+    }
+  }
+private:
+  FullFilterBitsReader *full_bits_reader = nullptr;
+  OtLexPdtBloomBitsReader *pdt_bits_reader = nullptr;
+  bool use_full_ = false;
+  bool use_opt_ = false;
+};
+
 // An implementation of filter policy
 class BloomFilterPolicy : public FilterPolicy {
  public:
@@ -581,7 +683,11 @@ class BloomFilterPolicy : public FilterPolicy {
     }
     if(isPdt)
     {
+    #ifdef USE_BLOOM_TRIE_FILTER
+      return new BloomTrieFilterBitsBuilder(16, num_probes_, true);
+    #else
       return new OtLexPdtBloomBitsBuilder();
+    #endif
     }
     else
     {
@@ -589,10 +695,14 @@ class BloomFilterPolicy : public FilterPolicy {
     }
   }
 
-  FilterBitsReader* GetFilterBitsReader(const Slice& contents,bool isPdt=false) const override {
+  FilterBitsReader* GetFilterBitsReader(const Slice& contents, bool isPdt = false) const override {
     if(isPdt)
     {
+#ifdef USE_BLOOM_TRIE_FILTER
+      return new BloomTrieFilterBitsReader(contents);
+#else
       return new OtLexPdtBloomBitsReader(contents);
+#endif
     }
     return new FullFilterBitsReader(contents);
   }

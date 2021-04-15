@@ -174,6 +174,11 @@ const std::vector<std::pair<Tickers, std::string>> TickersNameMap = {
      "rocksdb.block.cache.compression.dict.bytes.insert"},
     {BLOCK_CACHE_COMPRESSION_DICT_BYTES_EVICT,
      "rocksdb.block.cache.compression.dict.bytes.evict"},
+    {OPT_FILTER_USED, "rocksdb.bloom.filter.optuseful"},
+    {UP_LEVEL2_READ, "rocksdb.bloom.filter.level2read"},
+    {FILTER_MISMATCH_L0, "rocksdb.bloom.filter.l0.mismatch"},
+    {FILTER_MISMATCH_L1, "rocksdb.bloom.filter.l1.mismatch"},
+    {FILTER_MISMATCH_L2_AND_UP, "rocksdb.bloom.filter.l2andup.mismatch"},
 };
 
 const std::vector<std::pair<Histograms, std::string>> HistogramsNameMap = {

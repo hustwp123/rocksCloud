@@ -56,6 +56,8 @@ extern const std::string kHashIndexPrefixesMetadataBlock;
 
 typedef BlockBasedTableOptions::IndexType IndexType;
 
+#define OPT_FILTER_LEVEL 1
+
 // Without anonymous namespace here, we fail the warning -Wmissing-prototypes
 namespace {
 
@@ -69,7 +71,7 @@ FilterBlockBuilder* CreateFilterBlockBuilder(
 
   FilterBitsBuilder* filter_bits_builder;
 
-  if(level>=2)
+  if(level >= OPT_FILTER_LEVEL)
   {
      filter_bits_builder=
       table_opt.filter_policy->GetFilterBitsBuilder(true);
@@ -102,7 +104,7 @@ FilterBlockBuilder* CreateFilterBlockBuilder(
           filter_bits_builder, table_opt.index_block_restart_interval,
           use_delta_encoding_for_index_values, p_index_builder, partition_size);
     } else {
-      if(level>1)
+      if(level >= OPT_FILTER_LEVEL)
       {
         return new OtLexPdtFilterBlockBuilder(filter_bits_builder);
       }
@@ -113,7 +115,6 @@ FilterBlockBuilder* CreateFilterBlockBuilder(
                                         table_opt.whole_key_filtering,
                                         filter_bits_builder);
       }
-      
     }
   }
 }
@@ -879,7 +880,7 @@ void BlockBasedTableBuilder::WriteFilterBlock(
       }
       else
       {
-        if(level>1) {
+        if(level >= OPT_FILTER_LEVEL) {
           key = BlockBasedTable::kOtLexPdtFilterBlockPrefix;
         }
         else {
@@ -1223,8 +1224,7 @@ TableProperties BlockBasedTableBuilder::GetTableProperties() const {
 
 const std::string BlockBasedTable::kFilterBlockPrefix = "filter.";
 const std::string BlockBasedTable::kFullFilterBlockPrefix = "fullfilter.";
-const std::string BlockBasedTable::kPartitionedFilterBlockPrefix =
-    "partitionedfilter.";
+const std::string BlockBasedTable::kPartitionedFilterBlockPrefix ="partitionedfilter.";
 
 //wp
 const std::string BlockBasedTable::kOtLexPdtFilterBlockPrefix = "otlexpdtfilter."; //xp

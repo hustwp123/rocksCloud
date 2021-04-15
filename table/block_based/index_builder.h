@@ -440,4 +440,80 @@ class PartitionedIndexBuilder : public IndexBuilder {
   bool cut_filter_block = false;
   BlockHandle last_encoded_handle_;
 };
+
+// TrieIndexBuilder contains a binary-searchable primary index for key sequence and datablock
+// +-----------------+---------------------------+---------------------+
+// | last seq key num in data block: 4 bytes | BlockHandle 8 bytes|
+
+class TrieIndexBuilder : public IndexBuilder {
+  // use_value_delta_encoding = false;
+ public:
+  explicit TrieIndexBuilder(
+      const InternalKeyComparator* comparator,
+      const int index_block_restart_interval, const uint32_t format_version,
+      const bool use_value_delta_encoding,
+      bool include_first_key)
+      : IndexBuilder(comparator),
+        index_block_builder_(index_block_restart_interval,
+                             true /*use_delta_encoding*/,
+                             use_value_delta_encoding),
+        use_value_delta_encoding_(use_value_delta_encoding),
+        include_first_key_(include_first_key) {
+    // Making the default true will disable the feature for old versions
+    seperator_is_key_plus_seq_ = (format_version <= 2);
+  }
+
+  virtual void OnKeyAdded(const Slice& key) override {
+    last_key_seq ++;
+  }
+
+  virtual void MyOnKeyAdded(const Slice& key, uint32_t key_seq) {
+    last_key_seq = key_seq;
+  }
+
+  virtual void AddIndexEntry(std::string* last_key_in_current_block,
+                             const Slice* first_key_in_next_block,
+                             const BlockHandle& block_handle) override {
+    char seq_buf[sizeof(uint32_t) + 1];
+    memcpy(seq_buf, &last_key_seq, sizeof(uint32_t));
+    std::string last_key_seq_str(seq_buf, sizeof(uint32_t));
+    IndexValue entry(block_handle, last_key_seq_str);
+    std::string encoded_entry;
+
+    entry.EncodeTo(&encoded_entry, include_first_key_, nullptr);
+  
+    last_encoded_handle_ = block_handle;
+    
+    index_block_builder_.Add(Slice(seq_buf, sizeof(uint32_t)), encoded_entry, nullptr);
+
+    current_block_first_internal_key_.clear();
+  }
+
+  using IndexBuilder::Finish;
+  virtual Status Finish(
+      IndexBlocks* index_blocks,
+      const BlockHandle& /*last_partition_block_handle*/) override {
+    index_blocks->index_block_contents = index_block_builder_.Finish();
+    index_size_ = index_blocks->index_block_contents.size();
+    return Status::OK();
+  }
+
+  virtual size_t IndexSize() const override { return index_size_; }
+
+  virtual bool seperator_is_key_plus_seq() override {
+    return seperator_is_key_plus_seq_;
+  }
+
+  friend class PartitionedIndexBuilder;
+
+ private:
+  BlockBuilder index_block_builder_;
+  const bool use_value_delta_encoding_;
+  bool seperator_is_key_plus_seq_;
+  const bool include_first_key_;
+  BlockHandle last_encoded_handle_ = BlockHandle::NullBlockHandle();
+  std::string current_block_first_internal_key_;
+  uint32_t last_key_seq = 0;
+};
+
 }  // namespace rocksdb

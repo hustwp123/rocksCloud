@@ -3261,6 +3261,117 @@ Status BlockBasedTable::Get(const ReadOptions& read_options, const Slice& key,
     IndexBlockIter iiter_on_stack;
     // if prefix_extractor found in block differs from options, disable
     // BlockPrefixIndex. Only do this check when index_type is kHashSearch.
+    if(rep_->filter_type == BlockBasedTable::Rep::FilterType::kOtLexPdtFilter) {
+      RecordTick(rep_->ioptions.statistics, OPT_FILTER_USED); 
+      auto iiter =
+          NewIndexIterator(read_options, false, &iiter_on_stack,
+                          get_context, &lookup_context);
+      std::unique_ptr<InternalIteratorBase<IndexValue>> iiter_unique_ptr;
+      if (iiter != &iiter_on_stack) {
+        iiter_unique_ptr.reset(iiter);
+      }
+
+      bool matched = false;  // if such user key mathced a key in SST
+      bool done = false;
+      for (iiter->Seek(key); iiter->Valid() && !done; iiter->Next()) {
+        IndexValue v = iiter->value();
+
+        BlockCacheLookupContext lookup_data_block_context{
+            TableReaderCaller::kUserGet, tracing_get_id,
+            /*get_from_user_specified_snapshot=*/read_options.snapshot !=
+                nullptr};
+        bool does_referenced_key_exist = false;
+        DataBlockIter biter;
+        uint64_t referenced_data_size = 0;
+        NewDataBlockIterator<DataBlockIter>(
+            read_options, v.handle, &biter, BlockType::kData, get_context,
+            &lookup_data_block_context,
+            /*s=*/Status(), /*prefetch_buffer*/ nullptr);
+
+        if (no_io && biter.status().IsIncomplete()) {
+          // couldn't get block from block_cache
+          // Update Saver.state to Found because we are only looking for
+          // whether we can guarantee the key is not there when "no_io" is set
+          get_context->MarkKeyMayExist();
+          break;
+        }
+        if (!biter.status().ok()) {
+          s = biter.status();
+          break;
+        }
+
+        bool may_exist = biter.SeekForGet(key);
+        // If user-specified timestamp is supported, we cannot end the search
+        // just because hash index lookup indicates the key+ts does not exist.
+        if (!may_exist) {
+          done = true;
+        } else {
+          // Call the *saver function on each entry/block until it returns false
+          for (; biter.Valid(); biter.Next()) {
+            ParsedInternalKey parsed_key;
+            if (!ParseInternalKey(biter.key(), &parsed_key)) {
+              s = Status::Corruption(Slice());
+            }
+
+            if (!get_context->SaveValue(
+                    parsed_key, biter.value(), &matched,
+                    biter.IsValuePinned() ? &biter : nullptr)) {
+              if (get_context->State() == GetContext::GetState::kFound) {
+                does_referenced_key_exist = true;
+                referenced_data_size = biter.key().size() + biter.value().size();
+              }
+              done = true;
+              break;
+            }
+          }
+          s = biter.status();
+        }
+
+        // Write the block cache access record.
+        if (block_cache_tracer_ && block_cache_tracer_->is_tracing_enabled()) {
+          // Avoid making copy of block_key, cf_name, and referenced_key when
+          // constructing the access record.
+          Slice referenced_key;
+          if (does_referenced_key_exist) {
+            referenced_key = biter.key();
+          } else {
+            referenced_key = key;
+          }
+          BlockCacheTraceRecord access_record(
+              rep_->ioptions.env->NowMicros(),
+              /*block_key=*/"", lookup_data_block_context.block_type,
+              lookup_data_block_context.block_size, rep_->cf_id_for_tracing(),
+              /*cf_name=*/"", rep_->level_for_tracing(),
+              rep_->sst_number_for_tracing(), lookup_data_block_context.caller,
+              lookup_data_block_context.is_cache_hit,
+              lookup_data_block_context.no_insert,
+              lookup_data_block_context.get_id,
+              lookup_data_block_context.get_from_user_specified_snapshot,
+              /*referenced_key=*/"", referenced_data_size,
+              lookup_data_block_context.num_keys_in_block,
+              does_referenced_key_exist);
+          block_cache_tracer_->WriteBlockAccess(
+              access_record, lookup_data_block_context.block_key,
+              rep_->cf_name_for_tracing(), referenced_key);
+        }
+
+        if (done) {
+          // Avoid the extra Next which is expensive in two-level indexes
+          break;
+        }
+      }
+      if (matched && filter != nullptr && !filter->IsBlockBased()) {
+        RecordTick(rep_->ioptions.statistics, BLOOM_FILTER_FULL_TRUE_POSITIVE);
+        PERF_COUNTER_BY_LEVEL_ADD(bloom_filter_full_true_positive, 1,
+                                  rep_->level);
+      } else {
+        fprintf(stdout, "[Worning]: Unexpect not found when use otpdt match.\n");
+      }
+      
+      if (s.ok()) {
+        s = iiter->status();
+      }
+    } else {
     bool need_upper_bound_check = false;
     if (rep_->index_type == BlockBasedTableOptions::kHashSearch) {
       need_upper_bound_check = PrefixExtractorChanged(
@@ -3371,7 +3482,7 @@ Status BlockBasedTable::Get(const ReadOptions& read_options, const Slice& key,
           referenced_key = key;
         }
         BlockCacheTraceRecord access_record(
-            rep_->ioptions.env->NowMicros(),
+            rep_->ioptions.env->NowMicros(),   /* sbh note: 可以获取时间*/
             /*block_key=*/"", lookup_data_block_context.block_type,
             lookup_data_block_context.block_size, rep_->cf_id_for_tracing(),
             /*cf_name=*/"", rep_->level_for_tracing(),
@@ -3397,10 +3508,22 @@ Status BlockBasedTable::Get(const ReadOptions& read_options, const Slice& key,
       RecordTick(rep_->ioptions.statistics, BLOOM_FILTER_FULL_TRUE_POSITIVE);
       PERF_COUNTER_BY_LEVEL_ADD(bloom_filter_full_true_positive, 1,
                                 rep_->level);
+    } else {
+      if(rep_->level_for_tracing() == 0) {
+        // fprintf(stdout, "Mismatch at level %d. Filter type %d.\n", rep_->level_for_tracing(), rep_->filter_type);
+        RecordTick(rep_->ioptions.statistics, FILTER_MISMATCH_L0); 
+      } else if (rep_->level_for_tracing() == 1) {
+        RecordTick(rep_->ioptions.statistics, FILTER_MISMATCH_L1); 
+      } else {
+        // fprintf(stdout, "Mismatch at level %d. Filter type %d.\n", rep_->level_for_tracing(), rep_->filter_type);
+        RecordTick(rep_->ioptions.statistics, FILTER_MISMATCH_L2_AND_UP); 
+      }
     }
+    
     if (s.ok()) {
       s = iiter->status();
     }
+    } // sbh add: simple deal with otpdt
   }
 
   return s;
