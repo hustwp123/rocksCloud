@@ -179,12 +179,12 @@ class BlockCacheTier : public PersistentCacheTier {
 //wp
 
 
-#define SST_SIZE (8 * 1024*1024)  //单个SST所占空间 800KB
+#define SST_SIZE (40 * 1024*1024)  //单个SST所占空间 800KB
 #define SPACE_SIZE (4 * 1024)  //单个空间大小     4KB
 
 struct Record  // KV记录结构
 {
-  std::vector<int> offset;
+  std::vector<uint64_t> offset;
   size_t size;
 };
 struct DLinkedNode  //双向链表节点
@@ -201,7 +201,7 @@ class SST_space  // cache 管理单个SST所占空间
 {
  public:
   SST_space(){};
-  void Set_Par(int fd_, uint32_t num, uint32_t begin_) {
+  void Set_Par(int fd_, uint32_t num, uint64_t begin_) {
     fd = fd_;
     begin = begin_;
     all_num = num;
@@ -213,7 +213,7 @@ class SST_space  // cache 管理单个SST所占空间
     head->next = tail;
     tail->prev = head;
   }
-  SST_space(int fd_, int num, int begin_)
+  SST_space(int fd_, int num, uint64_t begin_)
       : fd(fd_), begin(begin_), all_num(num), empty_num(num)
       {
     bit_map.resize(num);
@@ -234,7 +234,8 @@ class SST_space  // cache 管理单个SST所占空间
   void removeRecord(Record* record) {
     int free_num = record->offset.size();
     for (uint32_t i = 0; i < record->offset.size(); i++) {
-      int index = record->offset[i] / SPACE_SIZE;
+      uint64_t index = record->offset[i] / SPACE_SIZE;
+      empty_nodes.push_back(index);
       bit_map[index] = 0;
     }
     record->offset.clear();
@@ -270,12 +271,15 @@ class SST_space  // cache 管理单个SST所占空间
  public:
   port::Mutex lock;
   int fd=-1;
-  uint32_t begin;             //指向该SST空间起始位置
+  uint64_t begin;             //指向该SST空间起始位置
   std::vector<bool> bit_map;  // bitmap暂时用bool数组代替
   uint32_t all_num;           //总空间数
   uint32_t empty_num;         //空空间数
   std::unordered_map<std::string, DLinkedNode*> cache;
   DLinkedNode *head, *tail;
+
+  std::vector<uint64_t> empty_nodes;
+  uint32_t last=0;
 };
 
 class myCache : public PersistentCacheTier {
@@ -343,12 +347,12 @@ class myCache : public PersistentCacheTier {
   //port::Mutex lock_;                   // Synchronization
 
   int fd=-1;
-  int NUM;
+  uint64_t NUM;
 
   const PersistentCacheConfig opt_;  // BlockCache options
 
   //std::vector<SST_space> v;
-  SST_space v[130];
+  SST_space v[200];
 
 
 

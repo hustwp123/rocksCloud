@@ -68,6 +68,7 @@ inline void BlockFetcher::CheckBlockChecksum() {
 }
 
 inline bool BlockFetcher::TryGetUncompressBlockFromPersistentCache(int level) {
+  //return false;
   if(level<2)
   {
     return false;
@@ -110,6 +111,7 @@ inline bool BlockFetcher::TryGetFromPrefetchBuffer() {
 }
 
 inline bool BlockFetcher::TryGetCompressedBlockFromPersistentCache(int level) {
+  //return false;
   if(level<2)
   {
     return false;

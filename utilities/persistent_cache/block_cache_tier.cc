@@ -57,7 +57,7 @@ Status BlockCacheTier::Open() {
     }
   }
 
-    // Create base/<table_cache dir> directory
+  // Create base/<table_cache dir> directory
   status = opt_.env->CreateDir(GetTableCachePath());
   if (!status.ok()) {
     // directory already exists, clean it up
@@ -81,7 +81,7 @@ Status BlockCacheTier::Open() {
 
   assert(cache_file_);
 
-    // create a new table_cache file
+  // create a new table_cache file
   assert(!table_cache_file_);
   status = NewTableCacheFile();
   if (!status.ok()) {
@@ -158,7 +158,7 @@ Status BlockCacheTier::Close() {
   return Status::OK();
 }
 
-template<class T>
+template <class T>
 void Add(std::map<std::string, double>* stats, const std::string& key,
          const T& t) {
   stats->insert({key, static_cast<double>(t)});
@@ -174,8 +174,7 @@ PersistentCache::StatsType BlockCacheTier::Stats() {
       stats_.bytes_read_.Average());
   Add(&stats, "persistentcache.blockcachetier.insert_dropped",
       stats_.insert_dropped_);
-  Add(&stats, "persistentcache.blockcachetier.cache_hits",
-      stats_.cache_hits_);
+  Add(&stats, "persistentcache.blockcachetier.cache_hits", stats_.cache_hits_);
   Add(&stats, "persistentcache.blockcachetier.cache_misses",
       stats_.cache_misses_);
   Add(&stats, "persistentcache.blockcachetier.cache_errors",
@@ -197,19 +196,20 @@ PersistentCache::StatsType BlockCacheTier::Stats() {
 }
 
 Status BlockCacheTier::Insert(const Slice& key, const char* data,
-                              const size_t size, bool is_meta_block,std::string) {
+                              const size_t size, bool is_meta_block,
+                              std::string) {
   // update stats
   stats_.bytes_pipelined_.Add(size);
 
   if (opt_.pipeline_writes) {
     // off load the write to the write thread
-    insert_ops_.Push(
-        InsertOp(key.ToString(), std::move(std::string(data, size)),is_meta_block));
+    insert_ops_.Push(InsertOp(
+        key.ToString(), std::move(std::string(data, size)), is_meta_block));
     return Status::OK();
   }
 
   assert(!opt_.pipeline_writes);
-  return InsertImpl(key, Slice(data, size),is_meta_block);
+  return InsertImpl(key, Slice(data, size), is_meta_block);
 }
 
 void BlockCacheTier::InsertMain() {
@@ -223,7 +223,8 @@ void BlockCacheTier::InsertMain() {
 
     size_t retry = 0;
     Status s;
-    while ((s = InsertImpl(Slice(op.key_), Slice(op.data_),op.is_meta_block_)).IsTryAgain()) {
+    while ((s = InsertImpl(Slice(op.key_), Slice(op.data_), op.is_meta_block_))
+               .IsTryAgain()) {
       if (retry > kMaxRetry) {
         break;
       }
@@ -241,13 +242,14 @@ void BlockCacheTier::InsertMain() {
   }
 }
 
-Status BlockCacheTier::InsertImpl(const Slice& key, const Slice& data,bool is_meta_block) {
+Status BlockCacheTier::InsertImpl(const Slice& key, const Slice& data,
+                                  bool is_meta_block) {
   // pre-condition
   assert(key.size());
   assert(data.size());
   assert(cache_file_);
 
-  StopWatchNano timer(opt_.env, /*auto_start=*/ true);
+  StopWatchNano timer(opt_.env, /*auto_start=*/true);
 
   WriteLock _(&lock_);
 
@@ -288,7 +290,7 @@ Status BlockCacheTier::InsertImpl(const Slice& key, const Slice& data,bool is_me
     stats_.write_latency_.Add(timer.ElapsedNanos() / 1000);
     return Status::OK();
   } else {
-    //printf("key.size==%ld    data.size==%ld\n",key.size(),data.size());
+    // printf("key.size==%ld    data.size==%ld\n",key.size(),data.size());
     LBA lba;
     if (table_metadata_.Lookup(key, &lba)) {
       // the key already exists, this is duplicate insert
@@ -327,8 +329,8 @@ Status BlockCacheTier::InsertImpl(const Slice& key, const Slice& data,bool is_me
 }
 
 Status BlockCacheTier::Lookup(const Slice& key, std::unique_ptr<char[]>* val,
-                              size_t* size,std::string) {
-    StopWatchNano timer(opt_.env, /*auto_start=*/true);
+                              size_t* size, std::string) {
+  StopWatchNano timer(opt_.env, /*auto_start=*/true);
 
   bool find_in_meta_block = false;
 
@@ -341,13 +343,13 @@ Status BlockCacheTier::Lookup(const Slice& key, std::unique_ptr<char[]>* val,
     if (!status2) {
       stats_.cache_misses_++;
       stats_.read_miss_latency_.Add(timer.ElapsedNanos() / 1000);
-      //printf("lookup failed1\n");
+      // printf("lookup failed1\n");
       return Status::NotFound("blockcache: key not found");
     } else {
       find_in_meta_block = false;
     }
   } else {
-    //printf("get in meta_block\n");
+    // printf("get in meta_block\n");
     find_in_meta_block = true;
   }
   if (!find_in_meta_block) {
@@ -384,7 +386,7 @@ Status BlockCacheTier::Lookup(const Slice& key, std::unique_ptr<char[]>* val,
     stats_.bytes_read_.Add(*size);
     stats_.cache_hits_++;
     stats_.read_hit_latency_.Add(timer.ElapsedNanos() / 1000);
-    //printf("lookup get in data block\n");
+    // printf("lookup get in data block\n");
     return Status::OK();
   } else {
     BlockCacheFile* const file = table_metadata_.Lookup(lba.cache_id_);
@@ -428,21 +430,19 @@ bool BlockCacheTier::Erase(const Slice& key) {
   WriteLock _(&lock_);
   LBA lba;
   bool status;
-  status=metadata_.Lookup(key,&lba);
-  if(status)
-  {
+  status = metadata_.Lookup(key, &lba);
+  if (status) {
     BlockInfo* info = metadata_.Remove(key);
     assert(info);
     delete info;
   }
-  status=table_metadata_.Lookup(key,&lba);
-  if(status)
-  {
+  status = table_metadata_.Lookup(key, &lba);
+  if (status) {
     BlockInfo* info = table_metadata_.Remove(key);
     assert(info);
     delete info;
   }
-  
+
   return true;
 }
 
@@ -455,7 +455,6 @@ Status BlockCacheTier::NewTableCacheFile() {
   std::unique_ptr<WriteableCacheFile> f(new WriteableCacheFile(
       opt_.env, &table_buffer_allocator_, &table_writer_, GetTableCachePath(),
       table_writer_cache_id_, opt_.cache_file_size, opt_.log));
-  
 
   bool status = f->Create(opt_.enable_direct_writes, opt_.enable_direct_reads);
   if (!status) {
@@ -484,10 +483,9 @@ Status BlockCacheTier::NewCacheFile() {
   TEST_SYNC_POINT_CALLBACK("BlockCacheTier::NewCacheFile:DeleteDir",
                            (void*)(GetCachePath().c_str()));
 
-  std::unique_ptr<WriteableCacheFile> f(
-    new WriteableCacheFile(opt_.env, &buffer_allocator_, &writer_,
-                           GetCachePath(), writer_cache_id_,
-                           opt_.cache_file_size, opt_.log));
+  std::unique_ptr<WriteableCacheFile> f(new WriteableCacheFile(
+      opt_.env, &buffer_allocator_, &writer_, GetCachePath(), writer_cache_id_,
+      opt_.cache_file_size, opt_.log));
 
   bool status = f->Create(opt_.enable_direct_writes, opt_.enable_direct_reads);
   if (!status) {
@@ -510,7 +508,7 @@ Status BlockCacheTier::NewCacheFile() {
   return Status::OK();
 }
 
-bool BlockCacheTier::Reserve(const size_t size,bool is_meta_block) {
+bool BlockCacheTier::Reserve(const size_t size, bool is_meta_block) {
   WriteLock _(&lock_);
 
   if (!is_meta_block) {
@@ -587,10 +585,10 @@ Status NewPersistentCache(Env* const env, const std::string& path,
 //
 
 Status NewPersistentmyCache(Env* const env, const std::string& path,
-                          const uint64_t size,
-                          const std::shared_ptr<Logger>& log,
-                          const bool optimized_for_nvm,
-                          std::shared_ptr<PersistentCache>* cache) {
+                            const uint64_t size,
+                            const std::shared_ptr<Logger>& log,
+                            const bool optimized_for_nvm,
+                            std::shared_ptr<PersistentCache>* cache) {
   if (!cache) {
     return Status::IOError("invalid argument cache");
   }
@@ -615,8 +613,6 @@ Status NewPersistentmyCache(Env* const env, const std::string& path,
   *cache = pcache;
   return s;
 }
-
-
 
 // wp
 
@@ -651,16 +647,16 @@ Status SST_space::Get(const std::string key, std::unique_ptr<char[]>* data,
   return Status::OK();
 }
 
-
 void SST_space::Put(const std::string& key, const std::string& value,
-                    uint64_t& out,bool is_meta ) {
+                    uint64_t& out, bool is_meta) {
   MutexLock _(&lock);
   if (value.size() == 0) {
     return;
   }
   uint32_t need_num = value.size() / SPACE_SIZE;
   need_num += value.size() % SPACE_SIZE == 0 ? 0 : 1;
-  if (need_num > all_num) {
+  if (need_num > all_num)// || need_num > 1) {
+  {
     return;
   }
   DLinkedNode* node;
@@ -669,13 +665,12 @@ void SST_space::Put(const std::string& key, const std::string& value,
     node = new DLinkedNode();
     node->key = key;
     node->value.offset.clear();
-    node->out=is_meta?1:0;
+    node->out = is_meta ? 1 : 0;
     cache[key] = node;
     addToHead(node);
     while (need_num > empty_num) {
-      DLinkedNode* tail_=getTail();
-      if(tail_->out)
-      {
+      DLinkedNode* tail_ = getTail();
+      if (tail_->out) {
         tail_->out--;
         moveToHead(tail_);
         continue;
@@ -688,13 +683,12 @@ void SST_space::Put(const std::string& key, const std::string& value,
     }
   } else {
     node = cache[key];
-    node->out=is_meta?1:0;
+    node->out = is_meta ? 1 : 0;
     moveToHead(node);
     removeRecord(&(node->value));
     while (need_num > empty_num) {
-      DLinkedNode* tail_=getTail();
-      if(tail_->out)
-      {
+      DLinkedNode* tail_ = getTail();
+      if (tail_->out) {
         tail_->out--;
         moveToHead(tail_);
         continue;
@@ -706,19 +700,45 @@ void SST_space::Put(const std::string& key, const std::string& value,
       delete removed;
     }
   }
-  //取块
-  uint32_t num = 0, j = 0;
-  while (j < bit_map.size()) {
-    if (!bit_map[j]) {
-      bit_map[j] = 1;
-      node->value.offset.push_back(j * SPACE_SIZE);
-      num++;
-      if (num == need_num) {
-        break;
-      }
+  empty_num -= need_num;
+
+  if (empty_nodes.size() >= need_num) {
+    for (uint32_t i = 0; i < empty_nodes.size() && i < need_num; i++) {
+      node->value.offset.push_back(empty_nodes[i] * SPACE_SIZE);
+      bit_map[empty_nodes[i]]=1;
     }
-    j++;
+    empty_nodes.clear();
+  } else {
+    uint32_t num = 0, j = (last + 1) % bit_map.size();
+    while (j != last) {
+      if (!bit_map[j]) {
+        bit_map[j] = 1;
+        node->value.offset.push_back(j * SPACE_SIZE);
+        num++;
+        if (num == need_num) {
+          last=j;
+          break;
+        }
+      }
+      j=(j+1)%bit_map.size();
+    }
   }
+
+  // node->value.offset.push_back(0);
+  // //取块
+  // uint32_t num = 0, j = 0;
+  // while (j < bit_map.size()) {
+  //   if (!bit_map[j]) {
+  //     bit_map[j] = 1;
+  //     node->value.offset.push_back(j * SPACE_SIZE);
+  //     num++;
+  //     if (num == need_num) {
+  //       break;
+  //     }
+  //   }
+  //   j++;
+  // }
+
   //写块
   size_t cur = 0;
   for (uint32_t i = 0; i < node->value.offset.size() - 1; i++) {
@@ -738,24 +758,23 @@ void SST_space::Put(const std::string& key, const std::string& value,
   if (t < 0) {
     return;
   }
-  empty_num -= need_num;
-
 }
 
-Status myCache::Insert(const Slice& key, const char* data, const size_t size,bool is_meta,
-                       std::string fname) {
-  // Insert2(std::string(key.data(), key.size()), std::string(data, size), fname);
-  // return Status::OK();
-  // if(is_meta)
+Status myCache::Insert(const Slice& key, const char* data, const size_t size,
+                       bool is_meta, std::string fname) {
+  // Insert2(std::string(key.data(), key.size()), std::string(data, size),
+  // fname); return Status::OK(); if(is_meta)
   // {
   //   fprintf(stderr,"insert size=%ld\n",size);
   // }
   if (opt_.pipeline_writes) {
-    insert_ops_.Push(myInsertOp(
-        key.ToString(), std::move(std::string(data, size)),is_meta, std::move(fname)));
+    insert_ops_.Push(myInsertOp(key.ToString(),
+                                std::move(std::string(data, size)), is_meta,
+                                std::move(fname)));
     return Status::OK();
   }
-  InsertImpl(std::string(key.data(), key.size()), std::string(data, size),is_meta, fname);
+  InsertImpl(std::string(key.data(), key.size()), std::string(data, size),
+             is_meta, fname);
   return Status::OK();
 }
 void myCache::InsertMain() {
@@ -766,7 +785,7 @@ void myCache::InsertMain() {
       // that is a secret signal to exit
       break;
     }
-    InsertImpl(op.key_, op.value_, op.is_meta,op.fname_);
+    InsertImpl(op.key_, op.value_, op.is_meta, op.fname_);
   }
 }
 
@@ -779,15 +798,15 @@ Status myCache::Lookup(const Slice& key, std::unique_ptr<char[]>* data,
   return s;
 }
 
-Status myCache::InsertImpl(const std::string& key, const std::string& value,bool is_meta,
-                        std::string& fname) {
+Status myCache::InsertImpl(const std::string& key, const std::string& value,
+                           bool is_meta, std::string& fname) {
   // MutexLock _(&lock_);
   int index = getIndex(fname, true);
-  v[index].Put(key, value, outall,is_meta);
+  v[index].Put(key, value, outall, is_meta);
   return Status::OK();
 }
 
-int myCache::getIndex(std::string fname, bool ) {
+int myCache::getIndex(std::string fname, bool) {
   if (fname.size() == 0) {
     return 0;
   }
@@ -818,10 +837,10 @@ Status myCache::Open() {
   std::string path = opt_.path;
   path += "/pcache_file";
   // std::string path2 = path + "Get_sst";
-   //std::string path3 = path + "Put_sst";
+  // std::string path3 = path + "Put_sst";
 
   // fp = fopen(path2.c_str(), "w+");
-   //fp2 = fopen(path3.c_str(), "w+");
+  // fp2 = fopen(path3.c_str(), "w+");
   fd = open(path.c_str(), O_RDWR | O_CREAT | O_TRUNC, 0777);
   lseek(fd, opt_.cache_size, SEEK_SET);
   int t = -1;
@@ -832,7 +851,7 @@ Status myCache::Open() {
 
   NUM = opt_.cache_size / SST_SIZE;
   // v.resize(NUM);
-  for (int i = 0; i < NUM; i++) {
+  for (uint64_t i = 0; i < NUM; i++) {
     v[i].Set_Par(fd, SST_SIZE / SPACE_SIZE, i * SST_SIZE);
   }
   if (opt_.pipeline_writes) {
@@ -849,28 +868,22 @@ Status myCache::Close() {
   }
   close(fd);
   // fclose(fp);
-   //fclose(fp2);
-  uint64_t all_empty_num=0;
-  for(int i=0;i<NUM;i++)
-  {
-    all_empty_num+=v[i].empty_num;
+  // fclose(fp2);
+  uint64_t all_empty_num = 0;
+  for (uint64_t i = 0; i < NUM; i++) {
+    all_empty_num += v[i].empty_num;
   }
 
-  fprintf(stderr,"/n/n\n all_empty_num=%ld \n",all_empty_num);
+  fprintf(stderr, "/n/n\n all_empty_num=%ld \n", all_empty_num);
   fprintf(stderr, "/n/n\n outall=%ld\n", outall);
   return Status::OK();
 }
-bool myCache::Erase(const Slice& ) {
-  return true;
-}
-bool myCache::Reserve(const size_t ,bool) {
-  return true;
-}
+bool myCache::Erase(const Slice&) { return true; }
+bool myCache::Reserve(const size_t, bool) { return true; }
 
 bool myCache::IsCompressed() { return opt_.is_compressed; }
 
 std::string myCache::GetPrintableOptions() const { return opt_.ToString(); }
-
 
 }  // namespace rocksdb
 
