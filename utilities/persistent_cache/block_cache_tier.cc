@@ -675,6 +675,7 @@ void SST_space::Put(const std::string& key, const std::string& value,
         moveToHead(tail_);
         continue;
       }
+      //fprintf(stderr,"out\n");
       out++;
       DLinkedNode* removed = removeTail();
       cache.erase(removed->key);
@@ -693,6 +694,7 @@ void SST_space::Put(const std::string& key, const std::string& value,
         moveToHead(tail_);
         continue;
       }
+      //fprintf(stderr,"out\n");
       out++;
       DLinkedNode* removed = removeTail();
       cache.erase(removed->key);
