@@ -211,8 +211,16 @@ bool Slice::RefineKeyFormat(bool x) const {
   return true;
 }
 
-
-
+// sbh: note for pdt replace '\0' to a char
+bool Slice::Replace(size_t start, size_t end, char a, char b) const {
+  char* data_start_ = const_cast<char*>(data_);
+  for(size_t i = start; i < std::min(size_, end); i++) {
+    if(data_[i] == a) {
+      data_start_[i] = b;
+    }
+  }
+  return true;
+}
 
 // Originally from rocksdb/utilities/ldb_cmd.h
 bool Slice::DecodeHex(std::string* result) const {

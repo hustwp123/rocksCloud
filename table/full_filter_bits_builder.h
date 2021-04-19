@@ -54,6 +54,7 @@ class OtLexPdtBloomBitsBuilder : public FilterBitsBuilder {
 #else
     key_strings_.push_back(key_string);
 #endif
+    // std::cout << "Pdt add key: " << key.ToString(true) << std::endl;
   }
 
   uint32_t CalculateSpace(const int num_entry) {
@@ -260,7 +261,7 @@ class OtLexPdtBloomBitsBuilder : public FilterBitsBuilder {
     // return a Slice with data and its byte length
     const char* const_data = contents;
     buf->reset(const_data);
-    fprintf(stdout, "Filter size: %ld, contents ptr: %p\n", buf_byte_size, contents);
+    // fprintf(stdout, "Filter size: %ld, contents ptr: %p\n", buf_byte_size, contents);
     return Slice(contents, buf_byte_size);
   }
 
@@ -293,9 +294,6 @@ class OtLexPdtBloomBitsBuilder : public FilterBitsBuilder {
 
     assert(sizeof(ot_pdt.pub_m_bp_m_size) != 0);
 #endif
-    // return a Slice with data and its byte length
-    const char* const_data = contents;
-    fprintf(stdout, "Filter size: %ld, contents ptr: %p\n", buf_byte_size, contents);
   }
 //   virtual Slice FinishWithString(std::string& buf)  {
 // //    fprintf(stderr, "in OtLexPdtBloomBitsBuilder::Finish() 8qpeye\n");
