@@ -625,23 +625,32 @@ Status SST_space::Get(const std::string key, std::unique_ptr<char[]>* data,
   DLinkedNode* node = cache[key];
   moveToHead(node);
   data->reset(new char[node->value.size]);
+  if(node->value.size>SPACE_SIZE)
+  {
+    fprintf(stderr,"get size=%ld\n",node->value.size);
+  }
+  
+  if(node->value.offset.size()>1)
+  {
+    fprintf(stderr,"get num>1\n");
+  }
   *size = node->value.size;
   size_t cur = 0;
   for (uint32_t i = 0; i < (node->value.offset.size() - 1); i++) {
     ssize_t t =
         pread(fd, data->get() + cur, SPACE_SIZE, begin + node->value.offset[i]);
-    if (t < 0) {
+    if (t != SPACE_SIZE) {
       return Status::IOError();
     }
     cur += SPACE_SIZE;
   }
-  int left_size = node->value.size % SPACE_SIZE == 0
+  ssize_t left_size = node->value.size % SPACE_SIZE == 0
                       ? SPACE_SIZE
                       : node->value.size % SPACE_SIZE;
   int index = node->value.offset.size() - 1;
   ssize_t t = pread(fd, data->get() + cur, left_size,
                     begin + node->value.offset[index]);
-  if (t < 0) {
+  if (t != left_size) {
     return Status::IOError();
   }
   return Status::OK();
@@ -655,10 +664,14 @@ void SST_space::Put(const std::string& key, const std::string& value,
   }
   uint32_t need_num = value.size() / SPACE_SIZE;
   need_num += value.size() % SPACE_SIZE == 0 ? 0 : 1;
-  if (need_num > all_num)// || need_num > 1) {
+  if (need_num > all_num)// || need_num > 1) 
   {
     return;
   }
+  // if(need_num>1)
+  // {
+  //   fprintf(stderr,"Put need_num>1\n ");
+  // }
   DLinkedNode* node;
   if (!cache.count(key))  // key不存在 创建新节点
   {
@@ -702,22 +715,33 @@ void SST_space::Put(const std::string& key, const std::string& value,
       delete removed;
     }
   }
+  node->value.size = value.size();
   empty_num -= need_num;
 
   if (empty_nodes.size() >= need_num) {
+    //fprintf(stderr,"get from empty_nodes need_num=%d empty_nodes.size()=%ld\n",need_num,empty_nodes.size());
     for (uint32_t i = 0; i < empty_nodes.size() && i < need_num; i++) {
       node->value.offset.push_back(empty_nodes[i] * SPACE_SIZE);
       bit_map[empty_nodes[i]]=1;
     }
     empty_nodes.clear();
   } else {
+    
+    for (uint32_t i = 0; i < empty_nodes.size() && i < need_num; i++) {
+      node->value.offset.push_back(empty_nodes[i] * SPACE_SIZE);
+      bit_map[empty_nodes[i]]=1;
+    }
+    need_num-=empty_nodes.size();
+    empty_nodes.clear();
+    
     uint32_t num = 0, j = (last + 1) % bit_map.size();
     while (j != last) {
+      //fprintf(stderr,"get from bit map need num=%d\n",need_num);
       if (!bit_map[j]) {
         bit_map[j] = 1;
         node->value.offset.push_back(j * SPACE_SIZE);
         num++;
-        if (num == need_num) {
+        if (num >= need_num) {
           last=j;
           break;
         }
@@ -746,18 +770,20 @@ void SST_space::Put(const std::string& key, const std::string& value,
   for (uint32_t i = 0; i < node->value.offset.size() - 1; i++) {
     ssize_t t = pwrite(fd, value.c_str() + cur, SPACE_SIZE,
                        begin + node->value.offset[i]);
-    if (t < 0) {
+    if (t != SPACE_SIZE) {
+      fprintf(stderr,"pwrite error\n");
       return;
     }
     cur += SPACE_SIZE;
   }
-  node->value.size = value.size();
-  size_t left_size =
+  
+  ssize_t left_size =
       value.size() % SPACE_SIZE == 0 ? SPACE_SIZE : value.size() % SPACE_SIZE;
   int index = node->value.offset.size() - 1;
   ssize_t t = pwrite(fd, value.c_str() + cur, left_size,
                      begin + node->value.offset[index]);
-  if (t < 0) {
+  if (t != left_size) {
+    fprintf(stderr,"pwrite error\n");
     return;
   }
 }

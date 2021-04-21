@@ -2211,8 +2211,10 @@ Status BlockBasedTable::MaybeReadBlockAndLoadToCache(
         s = block_fetcher.ReadBlockContents(rep_->level,is_meta_block);
         raw_block_comp_type = block_fetcher.get_compression_type();
         contents = &raw_block_contents;
+        //fprintf(stderr,"read from file raw_block_comp_type=%d\n",raw_block_comp_type);
       } else {
         raw_block_comp_type = contents->get_compression_type();
+        //fprintf(stderr,"read from mem raw_block_comp_type=%d\n",raw_block_comp_type);
       }
 
       if (s.ok()) {

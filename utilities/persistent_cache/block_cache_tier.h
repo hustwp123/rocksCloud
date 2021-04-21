@@ -238,6 +238,7 @@ class SST_space  // cache 管理单个SST所占空间
       empty_nodes.push_back(index);
       bit_map[index] = 0;
     }
+    record->size=0;
     record->offset.clear();
     empty_num += free_num;
     //fprintf(stderr,"in removeRecord empty_num=%d\n",empty_num);
