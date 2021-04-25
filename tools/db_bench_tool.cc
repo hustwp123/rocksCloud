@@ -2630,12 +2630,15 @@ class Benchmark {
       memcpy(pos, static_cast<void*>(&v), bytes_to_fill);
     }
     pos += bytes_to_fill;
+
+    key->Replace(0, static_cast<size_t>(pos - start), '\0', 'S'); //sbh, Replace '\0' with 'R'
+
     if (key_size_ > pos - start) {
       memset(pos, '0', key_size_ - (pos - start));
     }
     //    fprintf(stderr, "DEBUG x6402u before refining, key(size %lu): %s\n",
     //            key->size_, key->data_);
-    key->RefineKeyFormat(true); //xp, transform to [prefix][keys]
+    //key->RefineKeyFormat(true); //xp, transform to [prefix][keys]
   }
 
   void GenerateKeyFromIntForSeek(uint64_t v, int64_t num_keys, Slice* key) {
@@ -6454,6 +6457,9 @@ int db_bench_tool(int argc, char** argv) {
                     " [OPTIONS]...");
     initialized = true;
   }
+  fprintf(stdout, "command: "); //xp
+  for(int i = 0; i < argc; i++) { fprintf(stdout, "%s ", argv[i]); }
+  fprintf(stdout, "\n");
   ParseCommandLineFlags(&argc, &argv, true);
   FLAGS_compaction_style_e = (rocksdb::CompactionStyle) FLAGS_compaction_style;
 #ifndef ROCKSDB_LITE

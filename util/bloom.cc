@@ -324,7 +324,7 @@ class OtLexPdtBloomBitsReader : public FilterBitsReader {
   #ifdef USE_FULL_OT_PDT
     using rocksdb::succinct::DecodeArgs;
     DecodeArgs arg(buf);
-    fprintf(stdout, "Filter buf:%p, size %ld\n", buf, contents.size());
+    //fprintf(stdout, "Filter buf:%p, size %ld\n", buf, contents.size());
     ot_pdt.Decode(&arg);
   #else
     // construct a ot lex pdt

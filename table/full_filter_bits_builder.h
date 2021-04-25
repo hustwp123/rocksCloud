@@ -262,7 +262,7 @@ virtual Slice Finish(std::unique_ptr<const char[]>* buf) override {
     // return a Slice with data and its byte length
     const char* const_data = contents;
     buf->reset(const_data);
-    fprintf(stdout, "Filter size: %ld, contents ptr: %p\n", buf_byte_size, contents);
+    //fprintf(stdout, "Filter size: %ld, contents ptr: %p\n", buf_byte_size, contents);
     return Slice(contents, buf_byte_size);
   }
 //   virtual Slice FinishWithString(std::string& buf)  {

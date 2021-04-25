@@ -99,6 +99,9 @@ class Slice {
   // xp
   bool RefineKeyFormat(bool x) const;
 
+  // sbh: note for pdt replace '\0' to a char
+  bool Replace(size_t start, size_t end, char a, char b) const;
+
 #ifdef __cpp_lib_string_view
   // Return a string_view that references the same data as this slice.
   std::string_view ToStringView() const {
