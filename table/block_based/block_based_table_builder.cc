@@ -677,6 +677,7 @@ void BlockBasedTableBuilder::WriteBlock(const Slice& raw_block_contents,
       BlockContents contents;
       UncompressionInfo uncompression_info(*r->verify_ctx, *verify_dict,
                                            r->compression_type);
+      
       Status stat = UncompressBlockContentsForCompressionType(
           uncompression_info, block_contents.data(), block_contents.size(),
           &contents, r->table_options.format_version, r->ioptions);

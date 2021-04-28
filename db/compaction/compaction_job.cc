@@ -777,6 +777,11 @@ Status CompactionJob::Install(const MutableCFOptions& mutable_cf_options) {
          << compact_->sub_compact_states.size() << "output_compression"
          << CompressionTypeToString(compact_->compaction->output_compression());
 
+  stream << "zyh_get_data" << "compaction_finished"
+	  << "compaction_time_micros" << compaction_stats_.micros
+	  << "output_level" << compact_->compaction->output_level()
+	  << "total_output_size" << compact_->total_bytes;
+
   if (compaction_job_stats_ != nullptr) {
     stream << "num_single_delete_mismatches"
            << compaction_job_stats_->num_single_del_mismatch;

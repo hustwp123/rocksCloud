@@ -629,21 +629,28 @@ Status SST_space::Get(const std::string key, std::unique_ptr<char[]>* data,
   size_t cur = 0;
   for (uint32_t i = 0; i < (node->value.offset.size() - 1); i++) {
     ssize_t t =
-        pread(fd, data->get() + cur, SPACE_SIZE, begin + node->value.offset[i]);
+        pread(fd, buf_, SPACE_SIZE, begin + node->value.offset[i]);
+
+    memcpy(data->get() + cur,buf_,SPACE_SIZE);
     if (t < 0) {
       return Status::IOError();
     }
+    if(t != SPACE_SIZE)
+	   fprintf(stderr,"t != SPACE_SIZE. t is %ld \n",t);
+
     cur += SPACE_SIZE;
   }
   int left_size = node->value.size % SPACE_SIZE == 0
                       ? SPACE_SIZE
                       : node->value.size % SPACE_SIZE;
   int index = node->value.offset.size() - 1;
-  ssize_t t = pread(fd, data->get() + cur, left_size,
+  ssize_t t = pread(fd, buf_,SPACE_SIZE,
                     begin + node->value.offset[index]);
+  memcpy(data->get() + cur,buf_,left_size);
   if (t < 0) {
     return Status::IOError();
   }
+
   return Status::OK();
 }
 
@@ -709,6 +716,13 @@ void SST_space::Put(const std::string& key, const std::string& value,
     }
     empty_nodes.clear();
   } else {
+     for (uint32_t i = 0; i < empty_nodes.size() && i < need_num; i++) {
+	     node->value.offset.push_back(empty_nodes[i] * SPACE_SIZE);
+	     bit_map[empty_nodes[i]]=1;
+     }
+     need_num -= empty_nodes.size();
+     empty_nodes.clear();
+
     uint32_t num = 0, j = (last + 1) % bit_map.size();
     while (j != last) {
       if (!bit_map[j]) {
@@ -742,8 +756,12 @@ void SST_space::Put(const std::string& key, const std::string& value,
   //写块
   size_t cur = 0;
   for (uint32_t i = 0; i < node->value.offset.size() - 1; i++) {
-    ssize_t t = pwrite(fd, value.c_str() + cur, SPACE_SIZE,
+    memcpy(buf_,value.c_str() + cur,4096);
+    ssize_t t = pwrite(fd, buf_, SPACE_SIZE,
                        begin + node->value.offset[i]);
+    if( t != SPACE_SIZE){
+	    printf("t != SPACE_SIZE in pwrite, t is %ld ;\n",t);
+    }
     if (t < 0) {
       return;
     }
@@ -753,7 +771,8 @@ void SST_space::Put(const std::string& key, const std::string& value,
   size_t left_size =
       value.size() % SPACE_SIZE == 0 ? SPACE_SIZE : value.size() % SPACE_SIZE;
   int index = node->value.offset.size() - 1;
-  ssize_t t = pwrite(fd, value.c_str() + cur, left_size,
+  memcpy(buf_,value.c_str() + cur,left_size);
+  ssize_t t = pwrite(fd, buf_, SPACE_SIZE,
                      begin + node->value.offset[index]);
   if (t < 0) {
     return;
@@ -767,6 +786,7 @@ Status myCache::Insert(const Slice& key, const char* data, const size_t size,
   // {
   //   fprintf(stderr,"insert size=%ld\n",size);
   // }
+  ++put_;
   if (opt_.pipeline_writes) {
     insert_ops_.Push(myInsertOp(key.ToString(),
                                 std::move(std::string(data, size)), is_meta,
@@ -792,6 +812,7 @@ void myCache::InsertMain() {
 Status myCache::Lookup(const Slice& key, std::unique_ptr<char[]>* data,
                        size_t* size, std::string fname) {
   // MutexLock _(&lock_);
+  ++get_;
   std::string skey(key.data(), key.size());
   int index = getIndex(fname);
   Status s = v[index].Get(skey, data, size);
@@ -841,13 +862,8 @@ Status myCache::Open() {
 
   // fp = fopen(path2.c_str(), "w+");
   // fp2 = fopen(path3.c_str(), "w+");
-  fd = open(path.c_str(), O_RDWR | O_CREAT | O_TRUNC, 0777);
+  fd = open(path.c_str(), O_RDWR | O_CREAT | O_TRUNC | O_DIRECT, 0777);
   lseek(fd, opt_.cache_size, SEEK_SET);
-  int t = -1;
-  ssize_t tt = write(fd, &t, sizeof(int));
-  if (tt < 0) {
-    return Status::IOError();
-  }
 
   NUM = opt_.cache_size / SST_SIZE;
   // v.resize(NUM);
@@ -876,6 +892,8 @@ Status myCache::Close() {
 
   fprintf(stderr, "/n/n\n all_empty_num=%ld \n", all_empty_num);
   fprintf(stderr, "/n/n\n outall=%ld\n", outall);
+  fprintf(stderr, "/n/n\n get = %ld\n", get_);
+  fprintf(stderr, "/n/n\n put = %ld\n", put_);
   return Status::OK();
 }
 bool myCache::Erase(const Slice&) { return true; }

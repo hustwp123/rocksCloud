@@ -2214,12 +2214,13 @@ Status BlockBasedTable::MaybeReadBlockAndLoadToCache(
       } else {
         raw_block_comp_type = contents->get_compression_type();
       }
-
+	
       if (s.ok()) {
         SequenceNumber seq_no = rep_->get_global_seqno(block_type);
         // If filling cache is allowed and a cache is configured, try to put the
         // block to the cache.
-        s = PutDataBlockToCache(key, ckey, block_cache, block_cache_compressed,
+        raw_block_comp_type = kNoCompression;
+	s = PutDataBlockToCache(key, ckey, block_cache, block_cache_compressed,
                                 block_entry, contents,
                                 raw_block_comp_type, uncompression_dict, seq_no,
                                 GetMemoryAllocator(rep_->table_options),
@@ -2433,7 +2434,7 @@ void BlockBasedTable::MaybeLoadBlocksToCache(
         if (compression_type != kNoCompression) {
           UncompressionContext context(compression_type);
           UncompressionInfo info(context, uncompression_dict, compression_type);
-          s = UncompressBlockContents(info, req.result.data(), handle.size(),
+	  s = UncompressBlockContents(info, req.result.data(), handle.size(),
                     &contents, footer.version(), rep_->ioptions,
                     memory_allocator);
         } else {

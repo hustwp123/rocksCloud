@@ -178,8 +178,7 @@ class BlockCacheTier : public PersistentCacheTier {
 
 //wp
 
-
-#define SST_SIZE (40 * 1024*1024)  //单个SST所占空间 800KB
+#define SST_SIZE (20*1024*1024)  //单个SST所占空间 8MB
 #define SPACE_SIZE (4 * 1024)  //单个空间大小     4KB
 
 struct Record  // KV记录结构
@@ -200,7 +199,20 @@ struct DLinkedNode  //双向链表节点
 class SST_space  // cache 管理单个SST所占空间
 {
  public:
-  SST_space(){};
+  SST_space(){
+    int ret = posix_memalign((void **)&buf_, 4096, 4096);
+    if(ret){
+	    fprintf(stderr,"posix_memalign failed");
+	    exit(1);
+    }
+  };
+
+  ~SST_space(){
+	if(buf_ != nullptr){
+	  free(buf_);
+	}
+  }
+
   void Set_Par(int fd_, uint32_t num, uint64_t begin_) {
     fd = fd_;
     begin = begin_;
@@ -213,6 +225,7 @@ class SST_space  // cache 管理单个SST所占空间
     head->next = tail;
     tail->prev = head;
   }
+
   SST_space(int fd_, int num, uint64_t begin_)
       : fd(fd_), begin(begin_), all_num(num), empty_num(num)
       {
@@ -231,6 +244,7 @@ class SST_space  // cache 管理单个SST所占空间
 
 
  private:
+  char* buf_=nullptr;
   void removeRecord(Record* record) {
     int free_num = record->offset.size();
     for (uint32_t i = 0; i < record->offset.size(); i++) {
@@ -284,7 +298,8 @@ class SST_space  // cache 管理单个SST所占空间
 
 class myCache : public PersistentCacheTier {
  public:
-  explicit myCache(const PersistentCacheConfig& opt) : opt_(opt) {}
+  explicit myCache(const PersistentCacheConfig& opt) : opt_(opt) {
+  }
   virtual ~myCache(){
       Close();
   }
@@ -354,15 +369,14 @@ class myCache : public PersistentCacheTier {
   //std::vector<SST_space> v;
   SST_space v[200];
 
-
-
-
   uint64_t outnum=0;
   uint64_t outall=0;
   FILE* fp,*fp2;
   uint64_t allnum=0;
   uint64_t smallnum=0;
   uint64_t bignum=0;
+  uint64_t get_=0;
+  uint64_t put_=0;
 };
 
 }  // namespace rocksdb

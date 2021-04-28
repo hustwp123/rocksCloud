@@ -428,6 +428,7 @@ Status UncompressBlockContentsForCompressionType(
       *contents = BlockContents(std::move(ubuf), decompress_size);
       break;
     default:
+      printf("error code is %d ;\n",uncompression_info.type());
       return Status::Corruption("bad block type");
   }
 

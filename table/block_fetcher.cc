@@ -287,6 +287,7 @@ Status BlockFetcher::ReadBlockContents(int level,bool is_meta_block) {
     // compressed page, uncompress, update cache
     UncompressionContext context(compression_type_);
     UncompressionInfo info(context, uncompression_dict_, compression_type_);
+    printf("zyh in block_fetcher.cc \n");
     status_ = UncompressBlockContents(info, slice_.data(), block_size_,
                                       contents_, footer_.version(), ioptions_,
                                       memory_allocator_);
